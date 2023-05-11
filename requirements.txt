@@ -4,3 +4,6 @@ pandas
 openpyxl
 matplotlib
 plotly
+statsmodels
+tqdm
+seaborn

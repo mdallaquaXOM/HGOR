@@ -6,7 +6,7 @@ from collections import defaultdict
 
 
 class PVTCORR:
-    def __init__(self, sat_pressure, Tsp, Psp, filepath):
+    def __init__(self, sat_pressure, Tsp, Psp):
         self.sat_pressure = sat_pressure
         self.Tsp = Tsp
         self.Psp = Psp
@@ -18,12 +18,15 @@ class PVTCORR:
         self.Tstd = 60
         self.AirMolecularWt = 28.96
 
-        if not os.path.exists(filepath):
-            print('PVT file does not exist:%s' % (filepath))
-            sys.exit(1)
-        self.pvt_table = pd.read_csv(filepath)
+        # if not os.path.exists(filepath):
+        #     print('PVT file does not exist:%s' % (filepath))
+        #     sys.exit(1)
+        # self.pvt_table = pd.read_csv(filepath)
 
-    def _computeGasGravityAtSeperatorConditions(self, Gamma, API):
+    def _computeGasGravityAtSeparatorConditions(self, Gamma, API):
+        # what is this?
+        # page 60 of https://ntnuopen.ntnu.no/ntnu-xmlui/bitstream/handle/11250/2397728/15177_FULLTEXT.pdf?sequence=1
+
         Gamma_gs = Gamma * (1.0 + 5.912e-5 * API * self.Tsp * np.log10(self.Psp / 114.7))
         return Gamma_gs
 
@@ -31,7 +34,7 @@ class PVTCORR:
                                                           pressure, gas_gravity):
         Tres = temperature
         API = api
-        Gamma_gs = self._computeGasGravityAtSeperatorConditions(gas_gravity, API)
+        Gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, API)
         GOR = self._computeSolutionGasOilRatio(api, temperature, self.sat_pressure,
                                                gas_gravity)
         Co = (-1433.0 + 5.0 * GOR + 17.2 * Tres - 1180.0 * Gamma_gs
@@ -51,7 +54,7 @@ class PVTCORR:
         Psat = self.sat_pressure
         Tsat = temperature
         API = api
-        Gamma_gs = self._computeGasGravityAtSeperatorConditions(gas_gravity, API)
+        Gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, API)
         a = C1 * Gamma_gs
         c = np.exp(C3 * API / (Tsat + 459.67))
         if pressure <= Psat:
@@ -73,7 +76,7 @@ class PVTCORR:
         Psat = self.sat_pressure
         Tres = temperature
         API = api
-        Gamma_gs = self._computeGasGravityAtSeperatorConditions(gas_gravity, API)
+        Gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, API)
         # print(Gamma_gs)
         C1 = C1 * 1.0
         C2 = C2 * (Tres - 60) * (API / Gamma_gs)
@@ -321,21 +324,131 @@ class PVTCORR:
 
 
 class PVTCORR_HGOR(PVTCORR):
-    def __init__(self, sat_pressure, Tsp, Psp, filepath):
-        self.sat_pressure = sat_pressure
-        self.Tsp = Tsp
-        self.Psp = Psp
-        self.Salinity = 20000
-        self.LARGE = 1e+12
-        self.TINY = 1e-12
-        self.iterMax = 100
-        self.Pstd = 14.69
-        self.Tstd = 60
-        self.AirMolecularWt = 28.96
+    def __init__(self, filepath, hgor=2000, **kwargs):
+
+        super().__init__(**kwargs)
 
         if not os.path.exists(filepath):
-            print('PVT file does not exist:%s' % (filepath))
+            print('PVT file does not exist:%s' % filepath)
             sys.exit(1)
-        self.pvt_table = pd.read_excel(filepath)
+        pvt_table = pd.read_excel(filepath, header=1)
 
-        a=0
+        api = pvt_table['API']
+
+        if 'gas_gravity' in pvt_table.columns:
+            gas_gravity = pvt_table['gas_gravity']
+
+            gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, api)
+            pvt_table['gamma_gs'] = gamma_gs
+
+        pvt_table['HGOR'] = False
+        pvt_table.loc[pvt_table['Rs'] > hgor, 'HGOR'] = True
+
+        self.pvt_table = pvt_table
+
+    def _computeSolutionGasOilRatio(self, api, temperature,
+                                    pressure, gas_gravity, method='vasquez_beggs_modified'):
+        if method == "vasquez_beggs_modified":
+
+            C1 = np.where(api <= 30, 1.091e+5, 3.405e+6)
+            C2 = np.where(api <= 30, 2.3913, 2.7754)
+            C3 = np.where(api <= 30, 1.e-6, 1.e-6)
+
+            a = pressure ** C3
+            b = - (C2 * api) / (temperature + 459.67)
+
+            Rs = (gas_gravity * a * (10 ** b)) / C1
+
+        elif method == "exponential_rational_8":
+            C = [9.021, -0.119, 2.221, -.531, .144, -1.842e-2, 12.802, 8.309]
+
+            a = C[0] + C[1] * np.log(temperature)
+            b = C[2] + C[3] * np.log(api)
+            d = C[6] + C[7] * np.log(gas_gravity)
+
+            K = (a / np.log(pressure) - 1.) * (b * d) ** (-1)
+
+            ln_Rs = (K - C[4]) / C[5]
+
+            Rs = np.exp(ln_Rs)
+
+        elif method == "exponential_rational_16":
+            C = [
+                7.258546e-1, -4.562008e-2,
+                3.198814e00, -3.994698e-1,
+                -1.483415e-1, 3.550853e-1,
+                2.914460e00, 4.402225e-1,
+                -1.791551e-1, 6.955443e-1,
+                -8.172007e-1, 4.229810e-1,
+                -5.612631e-1, 4.735904e-02,
+                4.746990e-02, -2.515009e-01
+            ]
+
+            C = [0.858, -7.881e-2,
+                 3.198, -.457,
+                 .146, .322,
+                 3.172, 1.015,
+                 -.34, .54,
+                 -.665, .458,
+                 -.545, 3.343e-2,
+                 .454, -.281
+                 ]
+
+            ln_t = np.log(temperature)
+            ln_api = np.log(api)
+            ln_gas_gravity = np.log(gas_gravity)
+
+            a = C[0] + C[1] * ln_t
+            e = C[8] + C[9] * ln_t
+
+            b = C[2] + C[3] * ln_api
+            f = C[10] + C[11] * ln_api
+
+            c = C[6] + C[7] * ln_gas_gravity
+            g = C[14] + C[15] * ln_gas_gravity
+
+            A = a * b * c
+            B = e * f * g
+
+            K = np.log(pressure) * B / A
+
+            ln_Rs = (K * C[12] - C[4]) / (C[5] - K * C[13])
+
+            Rs = np.exp(ln_Rs)
+
+        else:
+            raise ValueError(f'Unknown method ({method}) for calculating Rs ')
+
+        return Rs
+
+    def compute_RS_values(self, api, gas_gravity, temperature):
+        p_sat = np.array(self.pvt_table['p_sat'])
+
+        rs = np.array(self.pvt_table['Rs'])
+
+        # New correlations
+        rs_vb_mod = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                     method='vasquez_beggs_modified')
+        rs_exp_rat_8 = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                        method='exponential_rational_8')
+        rs_exp_rat_16 = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                         method='exponential_rational_16')
+
+        comparison_dict = {'Vasquez_Beggs': []}
+
+        # Old correlations
+        for p_i, api_i, gas_gravity_i, temperature_i in zip(p_sat, api, gas_gravity, temperature):
+            self.sat_pressure = p_i
+            rs_vb = super()._computeSolutionGasOilRatio(api_i, temperature_i, p_i, gas_gravity_i)
+            comparison_dict['Vasquez_Beggs'].append(rs_vb)
+
+        comparison_dict['pressure'] = p_sat
+        comparison_dict['temperature'] = temperature
+        comparison_dict['gas_gravity'] = gas_gravity
+        comparison_dict['api'] = api
+        comparison_dict['Rs'] = rs
+        comparison_dict['Vasquez_Beggs_modified'] = rs_vb_mod
+        comparison_dict['Exponential_Rational_8'] = rs_exp_rat_8
+        comparison_dict['Exponential_Rational_16'] = rs_exp_rat_16
+
+        return comparison_dict
