@@ -286,7 +286,7 @@ class Grace:
 
 if __name__ == '__main__':
     # testing grace algorithm
-    data = pd.read_csv(os.path.join('..', 'Data', 'syn.csv'))
+    data = pd.read_csv(os.path.join('../..', 'Data', 'syn.csv'))
     x = data['x']
     y = data['y']
 

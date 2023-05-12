@@ -1,5 +1,6 @@
-from LGOR_script import PVTCORR_HGOR
-from utils import *
+from correlations.new_correlations import PVTCORR_HGOR
+from correlations.utils import *
+from correlations.optimizer import optimizeParameter
 
 pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
                     hgor=2000,
@@ -13,7 +14,7 @@ pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
 
 
 # Optimize Vasquez and Beggs
-C_new_vasquez = pvtc.optimizeParameter(metric_func='LSE', source='paper')
+C_new_vasquez = optimizeParameter(pvtc, metric_func='LSE', source='paper')
 
 new_parameter = {'Vasquez_Beggs': C_new_vasquez.x}
 
