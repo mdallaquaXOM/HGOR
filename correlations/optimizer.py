@@ -1,10 +1,16 @@
 import numpy as np
 import scipy as sp
 from .utils import metrics
+from scipy.optimize import minimize, Bounds, differential_evolution
 
 
-def optimizeParameter(self, source=None, metric_func='LSE'):
-    df = self.pvt_table
+def optimizeParameter(pvt_class, source=None, metric_func='LSE', type=3):
+    # type
+    # 1 - Trust-Region Constrained Algorithm (method='trust-constr')
+    # 2 - Sequential Least SQuares Programming (SLSQP) Algorithm (method='SLSQP')
+    # 3 - Global optimization
+
+    df = pvt_class.pvt_table
 
     # filter by soruce
     if source is not None:
@@ -22,23 +28,35 @@ def optimizeParameter(self, source=None, metric_func='LSE'):
 
     # objective function
     def obj_function(coefficients):
-        rs_calc = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                   method={'principle': 'vasquez_beggs', 'variation': 'extra'},
-                                                   coefficients=coefficients)
+        rs_calc = pvt_class._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                        method={'principle': 'vasquez_beggs', 'variation': 'extra'},
+                                                        coefficients=coefficients)
         metrics_ = metrics(rs_measured, rs_calc)
         obj = metrics_[metric_func]
 
         return obj
 
-    #                       C1         C2        C3         C5
-    range_of_values = [(1e-2, 8e-2), (1., 2.), (15., 30), (40., 50)]
-    x0 = [0.0178, 1.187, 23.931, 47.]
-    C_new = sp.optimize.differential_evolution(
-        obj_function, range_of_values,
-        seed=100,
-        x0=x0,
-        strategy='best2exp')
+    #                    lower                 upper
+    #                 C1   C2   C3   C4     C1   C2  C3  C4
+    bounds = Bounds([1e-2, 1., 15., 40.], [8e-2, 2., 30, 50])
 
-    print(C_new)
+    x_start = np.array([0.0178, 1.187, 23.931, 47.])
 
-    return C_new
+    # Optimization
+    if type == 1 | type == 2:
+        if type == 1:
+            print('Optimizer: Trust-Region Constrained Algorithm')
+            method = 'trust-constr'
+        else:
+            print('Optimizer: Sequential Least SQuares Programming (SLSQP) Algorithm')
+            method = 'SLSQP'
+
+        x_new = minimize(obj_function, x_start, method=method, bounds=bounds, tol=1e-8,
+                         options={'disp': True})
+    else:
+        print('Optimizer: Global optimization')
+        x_new = differential_evolution(obj_function, bounds=bounds, x0=x_start, tol=1e-8)
+
+    print(f'Best set of parameters: {x_new.x}')
+
+    return x_new

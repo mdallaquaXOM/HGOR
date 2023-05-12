@@ -13,13 +13,16 @@ pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
 # EDA_plotly(pvtc.pvt_table)
 
 
-# Optimize Vasquez and Beggs
-C_new_vasquez = optimizeParameter(pvtc, metric_func='LSE', source='paper')
+# Optimizer
+# 1 - Trust-Region Constrained Algorithm (method='trust-constr')
+# 2 - Sequential Least SQuares Programming (SLSQP) Algorithm (method='SLSQP')
+# 3 - Global optimization
+C_new_vasquez = optimizeParameter(pvtc, type=1, metric_func='LSE', source='PVT_paper')
 
 new_parameter = {'Vasquez_Beggs': C_new_vasquez.x}
 
 # Calculate RS
-Rs, Rs_metrics = pvtc.compute_RS_values(new_parameter)
+Rs, Rs_metrics = pvtc.compute_RS_values(new_parameter, source='PVT_paper')
 
 
 plot_log_log(Rs, measured='Rs',
