@@ -6,7 +6,7 @@ from .LGOR_script import PVTCORR
 
 
 class PVTCORR_HGOR(PVTCORR):
-    def __init__(self, path, files, columns=None, hgor=2000, **kwargs):
+    def __init__(self, path, files, columns=None, hgor=2000, dataAugmentation=None, **kwargs):
 
         super().__init__(**kwargs)
 
@@ -32,16 +32,21 @@ class PVTCORR_HGOR(PVTCORR):
         pvt_table['HGOR'] = False
         pvt_table.loc[pvt_table['Rs'] > hgor, 'HGOR'] = True
 
+        if dataAugmentation is not None:
+            hgor = pvt_table[pvt_table['HGOR']==True]
+            for i in range(dataAugmentation):
+                pvt_table = pd.concat([pvt_table, hgor])
+
         self.pvt_table = pvt_table
 
     def _computeSolutionGasOilRatio(self, api, temperature,
                                     pressure, gas_gravity, method=None,
-                                    coefficients=None):
+                                    parameters=None):
         # standard values
         if method is None:
             method = {'principle': 'vasquez_beggs', 'variation': 'original'}
-        if coefficients is None:
-            coefficients = [0.0178, 1.187, 23.931, 47.]
+        if parameters is None:
+            parameters = [0.0178, 1.187, 23.931, 47.]
 
         if method['principle'] == "vasquez_beggs":
             if method['variation'] == "original":
@@ -51,13 +56,13 @@ class PVTCORR_HGOR(PVTCORR):
                 C2_choices = [1.0937, 1.187]
                 C3_choices = [25.724, 23.931]
 
-            elif method['variation'] == 'extra':
+            elif method['variation'] == 'optimize':
 
-                conditions = [api <= 30, (api > 30) & (api < coefficients[3]), api >= coefficients[3]]
+                conditions = [api <= 30, (api > 30) & (api < parameters[3]), api >= parameters[3]]
 
-                C1_choices = [0.0362, 0.0178, coefficients[0]]
-                C2_choices = [1.0937, 1.187, coefficients[1]]
-                C3_choices = [25.724, 23.931, coefficients[2]]
+                C1_choices = [0.0362, 0.0178, parameters[0]]
+                C2_choices = [1.0937, 1.187, parameters[1]]
+                C3_choices = [25.724, 23.931, parameters[2]]
 
             else:
                 raise ValueError(f"Unknown {method['variation']} for calculating Rs ")
@@ -82,7 +87,10 @@ class PVTCORR_HGOR(PVTCORR):
             Rs = (gas_gravity * a * (10 ** b)) / C1
 
         elif method['principle'] == "exponential_rational_8":
-            C = [9.021, -0.119, 2.221, -.531, .144, -1.842e-2, 12.802, 8.309]
+            if method['variation'] == 'optimize':
+                C = parameters
+            else:  # blasingame paper
+                C = [9.021, -0.119, 2.221, -.531, .144, -1.842e-2, 12.802, 8.309]
 
             a = C[0] + C[1] * np.log(temperature)
             b = C[2] + C[3] * np.log(api)
@@ -107,7 +115,7 @@ class PVTCORR_HGOR(PVTCORR):
                     -5.612631e-1, 4.735904e-02,
                     4.746990e-02, -2.515009e-01
                 ]
-            else:  ## Blasingane paper
+            elif method['variation'] == 'blasingame':  ## Blasingame paper
                 C = [0.858, -7.881e-2,
                      3.198, -.457,
                      .146, .322,
@@ -117,6 +125,8 @@ class PVTCORR_HGOR(PVTCORR):
                      -.545, 3.343e-2,
                      .454, -.281
                      ]
+            else:
+                C = parameters
 
             ln_t = np.log(temperature)
             ln_api = np.log(api)
@@ -166,15 +176,21 @@ class PVTCORR_HGOR(PVTCORR):
         rs_vb_orig = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
                                                       method={'principle': 'vasquez_beggs', 'variation': 'original'})
 
-        rs_vb_mod = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                     method={'principle': 'vasquez_beggs', 'variation': 'extra'},
-                                                     coefficients=new_parameter['Vasquez_Beggs'])
+        rs_vb_opt = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                     method={'principle': 'vasquez_beggs', 'variation': 'optimize'},
+                                                     parameters=new_parameter['Vasquez_Beggs'])
 
         rs_vb_paper = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
                                                        method={'principle': 'vasquez_beggs_paper'})
 
-        rs_exp_rat_8 = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                        method={'principle': 'exponential_rational_8'})
+        rs_exp_rat_8_paper = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                              method={'principle': 'exponential_rational_8',
+                                                                      'variation':'paper'})
+
+        rs_exp_rat_8_opt = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                            method={'principle': 'exponential_rational_8', 'variation':
+                                                                'optimize'},
+                                                            parameters=new_parameter['exponential_rational_8'])
 
         rs_exp_rat_16_paper = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
                                                                method={'principle': 'exponential_rational_16',
@@ -190,9 +206,10 @@ class PVTCORR_HGOR(PVTCORR):
                            'api': api,
                            'Rs': rs,
                            'VB_original': rs_vb_orig,
-                           'VB_modified': rs_vb_mod,
+                           'VB_optimized': rs_vb_opt,
                            'VB_paper': rs_vb_paper,
-                           'Exp_Rational_8': rs_exp_rat_8,
+                           'Exp_Rational_8_paper': rs_exp_rat_8_paper,
+                           'Exp_Rational_8_optimized': rs_exp_rat_8_opt,
                            'Exp_Rational_16_paper': rs_exp_rat_16_paper,
                            'Exp_Rational_16_new': rs_exp_rat_16_new}
 
@@ -204,9 +221,10 @@ class PVTCORR_HGOR(PVTCORR):
         #     comparison_dict['Vasquez_Beggs'].append(rs_vb)
 
         metrics_ = {'VB_original': metrics(rs, rs_vb_orig),
-                    'VB_modified': metrics(rs, rs_vb_mod),
+                    'VB_optimized': metrics(rs, rs_vb_opt),
                     'VB_paper': metrics(rs, rs_vb_paper),
-                    'Exp_Rational_8': metrics(rs, rs_exp_rat_8),
+                    'Exp_Rational_8_paper': metrics(rs, rs_exp_rat_8_paper),
+                    'Exp_Rational_8_optimized': metrics(rs, rs_exp_rat_8_opt),
                     'Exp_Rational_16_paper': metrics(rs, rs_exp_rat_16_paper),
                     'Exp_Rational_16_new': metrics(rs, rs_exp_rat_16_new)}
 
@@ -218,6 +236,3 @@ class PVTCORR_HGOR(PVTCORR):
         metrics_df = metrics_df.round(2)
 
         return comparison_df, metrics_df
-
-
-
