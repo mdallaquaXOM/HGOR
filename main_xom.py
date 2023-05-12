@@ -1,29 +1,34 @@
-import os
-import matplotlib.pyplot as plt
-import pandas as pd
 from LGOR_script import PVTCORR_HGOR
 from utils import *
 
-pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=500, filepath=os.path.join('..', 'Data', 'PVT_Data.xlsx'))
+pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
+                    hgor=2000,
+                    columns=['temperature', 'API', 'gamma_s', 'Rs', 'p_sat', 'Bo_psat', 'visc_o_psat'],
+                    path='data',
+                    files=['PVT_Data', 'PVT_paper'])
 
-# # creating flag for HGOR
-# plot_pairplots(pvtc.pvt_table[['p_sat', 'temperature', 'gas_gravity', 'gamma_gs', 'API', 'Rs', 'HGOR']], hue='HGOR')
 
-# From the table
-api = pvtc.pvt_table['API']
-gas_gravity = pvtc.pvt_table['gamma_gs']
-temperature = pvtc.pvt_table['temperature']
+# Perform EDA
+# EDA_seaborn(pvtc.pvt_table)
+# EDA_plotly(pvtc.pvt_table)
 
-Rs = pvtc.compute_RS_values(api, gas_gravity, temperature)
+
+# Optimize Vasquez and Beggs
+C_new_vasquez = pvtc.optimizeParameter(metric_func='LSE')
+
+new_parameter = {'Vasquez_Beggs': C_new_vasquez.x}
+
+# Calculate RS
+Rs = pvtc.compute_RS_values(new_parameter)
 
 df_Rs = pd.DataFrame(Rs)
 df_Rs['HGOR'] = pvtc.pvt_table['HGOR']
 
 plot_log_log(df_Rs, measured='Rs',
-             calculated=['Vasquez_Beggs',
-                         'Vasquez_Beggs_modified',
-                         'Exponential_Rational_8',
-                         'Exponential_Rational_16'],
+             calculated=['VB_original',
+                         'VB_modified',
+                         'VB_paper',
+                         'Exp_Rational_8',
+                         'Exp_Rational_16_paper',
+                         'Exp_Rational_16_new'],
              title='Rs (scf/stb) at saturation pressure')
-
-a = 0

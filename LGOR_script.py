@@ -1,8 +1,9 @@
 from scipy.optimize import differential_evolution
-import numpy as np
-import pandas as pd
-import os, sys
 from collections import defaultdict
+from utils import metrics
+import numpy as np
+import os
+import pandas as pd
 
 
 class PVTCORR:
@@ -26,6 +27,7 @@ class PVTCORR:
     def _computeGasGravityAtSeparatorConditions(self, Gamma, API):
         # what is this?
         # page 60 of https://ntnuopen.ntnu.no/ntnu-xmlui/bitstream/handle/11250/2397728/15177_FULLTEXT.pdf?sequence=1
+        # page 61 of Chen(2006) - Computational Methods for Multiphase Flows in Porous Media
 
         Gamma_gs = Gamma * (1.0 + 5.912e-5 * API * self.Tsp * np.log10(self.Psp / 114.7))
         return Gamma_gs
@@ -54,7 +56,8 @@ class PVTCORR:
         Psat = self.sat_pressure
         Tsat = temperature
         API = api
-        Gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, API)
+        # Gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, API)
+        Gamma_gs = gas_gravity
         a = C1 * Gamma_gs
         c = np.exp(C3 * API / (Tsat + 459.67))
         if pressure <= Psat:
@@ -324,32 +327,72 @@ class PVTCORR:
 
 
 class PVTCORR_HGOR(PVTCORR):
-    def __init__(self, filepath, hgor=2000, **kwargs):
+    def __init__(self, path, files, columns=None, hgor=2000, **kwargs):
 
         super().__init__(**kwargs)
 
-        if not os.path.exists(filepath):
-            print('PVT file does not exist:%s' % filepath)
-            sys.exit(1)
-        pvt_table = pd.read_excel(filepath, header=1)
+        pvt_tables = []
+        for file in files:
+            filepath = os.path.join(path, file + '.xlsx')
 
-        api = pvt_table['API']
+            pvt_table_i = pd.read_excel(filepath, header=1, usecols=columns)
+            pvt_table_i['source'] = file
+            pvt_tables.append(pvt_table_i)
 
-        if 'gas_gravity' in pvt_table.columns:
-            gas_gravity = pvt_table['gas_gravity']
+        pvt_table = pd.concat(pvt_tables)
+
+        # Calculate corrected gas gravity (?)
+        if 'gamma_c' not in pvt_table.columns:
+            api = pvt_table['API']
+            gas_gravity = pvt_table['gamma_s']
 
             gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, api)
-            pvt_table['gamma_gs'] = gamma_gs
+            pvt_table['gamma_c'] = gamma_gs
 
+        # Assign flag for HGOR
         pvt_table['HGOR'] = False
         pvt_table.loc[pvt_table['Rs'] > hgor, 'HGOR'] = True
 
         self.pvt_table = pvt_table
 
     def _computeSolutionGasOilRatio(self, api, temperature,
-                                    pressure, gas_gravity, method='vasquez_beggs_modified'):
-        if method == "vasquez_beggs_modified":
+                                    pressure, gas_gravity, method=None,
+                                    coefficients=None):
+        # standard values
+        if method is None:
+            method = {'principle': 'vasquez_beggs', 'variation': 'original'}
+        if coefficients is None:
+            coefficients = [0.0178, 1.187, 23.931, 47.]
 
+        if method['principle'] == "vasquez_beggs":
+            if method['variation'] == "original":
+                conditions = [api <= 30, (api > 30)]
+
+                C1_choices = [0.0362, 0.0178]
+                C2_choices = [1.0937, 1.187]
+                C3_choices = [25.724, 23.931]
+
+            elif method['variation'] == 'extra':
+
+                conditions = [api <= 30, (api > 30) & (api < coefficients[3]), api >= coefficients[3]]
+
+                C1_choices = [0.0362, 0.0178, coefficients[0]]
+                C2_choices = [1.0937, 1.187, coefficients[1]]
+                C3_choices = [25.724, 23.931, coefficients[2]]
+
+            else:
+                raise ValueError(f"Unknown {method['variation']} for calculating Rs ")
+
+            C1 = np.select(conditions, C1_choices, default=np.nan)
+            C2 = np.select(conditions, C2_choices, default=np.nan)
+            C3 = np.select(conditions, C3_choices, default=np.nan)
+
+            a = pressure ** C2
+            b = np.exp((C3 * api) / (temperature + 459.67))
+
+            Rs = C1 * a * gas_gravity * b
+
+        elif method['principle'] == "vasquez_beggs_paper":
             C1 = np.where(api <= 30, 1.091e+5, 3.405e+6)
             C2 = np.where(api <= 30, 2.3913, 2.7754)
             C3 = np.where(api <= 30, 1.e-6, 1.e-6)
@@ -359,7 +402,7 @@ class PVTCORR_HGOR(PVTCORR):
 
             Rs = (gas_gravity * a * (10 ** b)) / C1
 
-        elif method == "exponential_rational_8":
+        elif method['principle'] == "exponential_rational_8":
             C = [9.021, -0.119, 2.221, -.531, .144, -1.842e-2, 12.802, 8.309]
 
             a = C[0] + C[1] * np.log(temperature)
@@ -372,27 +415,29 @@ class PVTCORR_HGOR(PVTCORR):
 
             Rs = np.exp(ln_Rs)
 
-        elif method == "exponential_rational_16":
-            C = [
-                7.258546e-1, -4.562008e-2,
-                3.198814e00, -3.994698e-1,
-                -1.483415e-1, 3.550853e-1,
-                2.914460e00, 4.402225e-1,
-                -1.791551e-1, 6.955443e-1,
-                -8.172007e-1, 4.229810e-1,
-                -5.612631e-1, 4.735904e-02,
-                4.746990e-02, -2.515009e-01
-            ]
-
-            C = [0.858, -7.881e-2,
-                 3.198, -.457,
-                 .146, .322,
-                 3.172, 1.015,
-                 -.34, .54,
-                 -.665, .458,
-                 -.545, 3.343e-2,
-                 .454, -.281
-                 ]
+        elif method['principle'] == "exponential_rational_16":
+            if method['variation'] == 'new_paper':
+                # New paper
+                C = [
+                    7.258546e-1, -4.562008e-2,
+                    3.198814e00, -3.994698e-1,
+                    -1.483415e-1, 3.550853e-1,
+                    2.914460e00, 4.402225e-1,
+                    -1.791551e-1, 6.955443e-1,
+                    -8.172007e-1, 4.229810e-1,
+                    -5.612631e-1, 4.735904e-02,
+                    4.746990e-02, -2.515009e-01
+                ]
+            else:  ## Blasingane paper
+                C = [0.858, -7.881e-2,
+                     3.198, -.457,
+                     .146, .322,
+                     3.172, 1.015,
+                     -.34, .54,
+                     -.665, .458,
+                     -.545, 3.343e-2,
+                     .454, -.281
+                     ]
 
             ln_t = np.log(temperature)
             ln_api = np.log(api)
@@ -421,34 +466,100 @@ class PVTCORR_HGOR(PVTCORR):
 
         return Rs
 
-    def compute_RS_values(self, api, gas_gravity, temperature):
-        p_sat = np.array(self.pvt_table['p_sat'])
+    def compute_RS_values(self, new_parameter=None, source=None):
 
-        rs = np.array(self.pvt_table['Rs'])
+        df = self.pvt_table
+
+        # filter by source
+        if source is not None:
+            mask = df['source'] == source
+            df = df[mask]
+
+        # recover inputs
+        api = df['API']
+        gas_gravity = df['gamma_c']
+        temperature = df['temperature']
+        p_sat = np.array(df['p_sat'])
+
+        rs = np.array(df['Rs'])
 
         # New correlations
-        rs_vb_mod = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                     method='vasquez_beggs_modified')
-        rs_exp_rat_8 = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                        method='exponential_rational_8')
-        rs_exp_rat_16 = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                         method='exponential_rational_16')
+        rs_vb_orig = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                      method={'principle': 'vasquez_beggs', 'variation': 'original'})
 
-        comparison_dict = {'Vasquez_Beggs': []}
+        rs_vb_mod = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                     method={'principle': 'vasquez_beggs', 'variation': 'extra'},
+                                                     coefficients=new_parameter['Vasquez_Beggs'])
+
+        rs_vb_paper = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                       method={'principle': 'vasquez_beggs_paper'})
+
+        rs_exp_rat_8 = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                        method={'principle': 'exponential_rational_8'})
+
+        rs_exp_rat_16_paper = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                               method={'principle': 'exponential_rational_16',
+                                                                       'variation': 'blasingame'})
+
+        rs_exp_rat_16_new = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                             method={'principle': 'exponential_rational_16',
+                                                                     'variation': 'new_paper'})
+
+        comparison_dict = {'pressure': p_sat,
+                           'temperature': temperature,
+                           'gas_gravity': gas_gravity,
+                           'api': api,
+                           'Rs': rs,
+                           'VB_original': rs_vb_orig,
+                           'VB_modified': rs_vb_mod,
+                           'VB_paper': rs_vb_paper,
+                           'Exp_Rational_8': rs_exp_rat_8,
+                           'Exp_Rational_16_paper': rs_exp_rat_16_paper,
+                           'Exp_Rational_16_new': rs_exp_rat_16_new}
 
         # Old correlations
-        for p_i, api_i, gas_gravity_i, temperature_i in zip(p_sat, api, gas_gravity, temperature):
-            self.sat_pressure = p_i
-            rs_vb = super()._computeSolutionGasOilRatio(api_i, temperature_i, p_i, gas_gravity_i)
-            comparison_dict['Vasquez_Beggs'].append(rs_vb)
-
-        comparison_dict['pressure'] = p_sat
-        comparison_dict['temperature'] = temperature
-        comparison_dict['gas_gravity'] = gas_gravity
-        comparison_dict['api'] = api
-        comparison_dict['Rs'] = rs
-        comparison_dict['Vasquez_Beggs_modified'] = rs_vb_mod
-        comparison_dict['Exponential_Rational_8'] = rs_exp_rat_8
-        comparison_dict['Exponential_Rational_16'] = rs_exp_rat_16
+        # comparison_dict = {'Vasquez_Beggs': []}
+        # for p_i, api_i, gas_gravity_i, temperature_i in zip(p_sat, api, gas_gravity, temperature):
+        #     self.sat_pressure = p_i
+        #     rs_vb = super()._computeSolutionGasOilRatio(api_i, temperature_i, p_i, gas_gravity_i)
+        #     comparison_dict['Vasquez_Beggs'].append(rs_vb)
 
         return comparison_dict
+
+    def optimizeParameter(self, source=None, metric_func='LSE'):
+        df = self.pvt_table
+
+        # filter by soruce
+        if source is not None:
+            mask = df['source'] == source
+            df = df[mask]
+
+        # recover inputs
+        api = df['API']
+        gas_gravity = df['gamma_c']
+        temperature = df['temperature']
+        p_sat = np.array(df['p_sat'])
+
+        # For metric evaluation
+        rs_measured = np.array(df['Rs'])
+
+        # objective function
+        def obj_function(coefficients):
+            rs_calc = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                       method={'principle': 'vasquez_beggs', 'variation': 'extra'},
+                                                       coefficients=coefficients)
+            metrics_ = metrics(rs_measured, rs_calc)
+            obj = metrics_[metric_func]
+
+            return obj
+
+        #                       C1         C2        C3         C5
+        range_of_values = [(1e-2, 8e-2), (1., 2.), (15., 30), (40., 50)]
+        x0 = [0.0178, 1.187, 23.931, 47.]
+        C_new = differential_evolution(obj_function, range_of_values, seed=100,
+                                       x0=x0,
+                                       strategy='best2exp')
+
+        print(C_new)
+
+        return C_new
