@@ -524,7 +524,21 @@ class PVTCORR_HGOR(PVTCORR):
         #     rs_vb = super()._computeSolutionGasOilRatio(api_i, temperature_i, p_i, gas_gravity_i)
         #     comparison_dict['Vasquez_Beggs'].append(rs_vb)
 
-        return comparison_dict
+        metrics_ = {'VB_original': metrics(rs, rs_vb_orig),
+                    'VB_modified': metrics(rs, rs_vb_mod),
+                    'VB_paper': metrics(rs, rs_vb_paper),
+                    'Exp_Rational_8': metrics(rs, rs_exp_rat_8),
+                    'Exp_Rational_16_paper': metrics(rs, rs_exp_rat_16_paper),
+                    'Exp_Rational_16_new': metrics(rs, rs_exp_rat_16_new)}
+
+        # treat outputs
+        comparison_df = pd.DataFrame.from_dict(comparison_dict)
+        comparison_df['HGOR'] = df['HGOR']
+
+        metrics_df = pd.DataFrame.from_dict(metrics_, orient='index')
+        metrics_df = metrics_df.round(2)
+
+        return comparison_df, metrics_df
 
     def optimizeParameter(self, source=None, metric_func='LSE'):
         df = self.pvt_table

@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import os
 import seaborn as sns
-import plotly.subplots as sp
-
+import plotly.subplots as plotly_sp
+import plotly.figure_factory as ff
 from tqdm import tqdm
 
 
@@ -33,7 +33,7 @@ def EDA_plotly(df):
                 figure_traces[i].append(fig["data"][trace])
 
     # Create a 1x2 subplot
-    fig = sp.make_subplots(rows=len(figs), cols=1, shared_xaxes=True)
+    fig = plotly_sp.make_subplots(rows=len(figs), cols=1, shared_xaxes=True)
 
     # Get the Express fig broken down as traces and add the traces to the proper plot within in the subplot
     for i, figure_trace in enumerate(figure_traces.values()):
@@ -58,7 +58,7 @@ def EDA_plotly(df):
 
 def EDA_seaborn(df):
     # plot comparing the viscosities
-    g = sns.pairplot(df, vars=['gamma_s', 'gamma_c'], hue='source',)
+    g = sns.pairplot(df, vars=['gamma_s', 'gamma_c'], hue='source', )
     g.figure.savefig(rf'figures/pairplot_specific_gravity.png')
 
     # plot psat vs Rs,  psat vs Bo, psat vs visco
@@ -77,10 +77,18 @@ def EDA_seaborn(df):
     g.figure.savefig(rf'figures/pairplots_Rs.png')
 
 
-def plot_log_log(df, measured, calculated, title):
+def plot_log_log(df, measured, calculated, title, metrics_df=None):
     colorsList = ["red", "blue", "green", "purple", "orange", "black"]
 
-    fig = go.Figure()
+    fig = plotly_sp.make_subplots(
+        rows=3, cols=1,
+        # vertical_spacing=0.03,
+        specs=[[{"type": "scatter", 'rowspan': 2}],
+               [None],
+               [{"type": "table"}]
+               ]
+    )
+
     for i, method in enumerate(calculated):
 
         for hgor, df_gor in df.groupby('HGOR'):
@@ -94,7 +102,8 @@ def plot_log_log(df, measured, calculated, title):
 
             fig.add_trace(go.Scatter(mode="markers", x=df_gor[measured], y=df_gor[method],
                                      name=name,
-                                     marker={'color': colorsList[i], 'symbol': symbol})
+                                     marker={'color': colorsList[i], 'symbol': symbol}),
+                          row=1, col=1
                           )
 
     # add 45 line
@@ -104,7 +113,22 @@ def plot_log_log(df, measured, calculated, title):
     x_45 = np.linspace(min_x, max_x)
     fig.add_trace(go.Scatter(x=x_45, y=x_45,
                              name='Perfect Trend',
-                             line=dict(color='black', dash='dash')))
+                             line=dict(color='black', dash='dash')), row=1, col=1)
+
+    # Add table with metrics
+    if metrics_df is not None:
+        metrics_df = metrics_df.reset_index(names='Method')
+
+        fig.add_trace(
+            go.Table(header=dict(values=list(metrics_df.columns),
+                                 # fill_color='paleturquoise',
+                                 align='left'),
+                     cells=dict(values=metrics_df.transpose().values.tolist(),
+                                # fill_color='lavender',
+                                align='left')
+                     ), row=3, col=1
+        )
+        # fig.add_trace(ff.create_table(metrics_df, index=True), row=2, col=1)
 
     fig.update_xaxes(type="log",
                      title_text="Measured",
