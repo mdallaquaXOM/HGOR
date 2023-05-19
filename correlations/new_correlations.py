@@ -261,21 +261,13 @@ class PVTCORR_HGOR(PVTCORR):
 
         if principle == "vasquez_beggs":
             if variation == "meija":
-
                 C4_choices = C_vasquez_beggs_meija_martinez['C4']
                 C5_choices = C_vasquez_beggs_meija_martinez['C5']
                 C6_choices = C_vasquez_beggs_meija_martinez['C6']
-            elif variation == "original":
+            elif variation == "original" or variation == "rs_update":
                 C4_choices = C_vasquez_beggs['C4']
                 C5_choices = C_vasquez_beggs['C5']
                 C6_choices = C_vasquez_beggs['C6']
-
-            elif variation == "rs_update":
-
-                C4_choices = C_vasquez_beggs['C4']
-                C5_choices = C_vasquez_beggs['C5']
-                C6_choices = C_vasquez_beggs['C6']
-
             else:
                 raise Exception(f'Bob method {principle} with variation ({variation}) not coded')
 
@@ -325,9 +317,17 @@ class PVTCORR_HGOR(PVTCORR):
             method = {'principle': 'Beggs_and_Robinson'}
 
         principle = method['principle'].lower()
+        variation = method['variation'].lower()
 
         if Rso is None:
-            Rso = self._computeRsAtSatPress(api, temperature, psat, gas_gravity, method=rs_best_correlation)
+            if principle == "exponential_rational_15":
+                Rso = self._computeRsAtSatPress(api, temperature, psat, gas_gravity, method=rs_best_correlation)
+            elif principle == "beggs_and_robinson":
+                if variation == "rs_update":
+                    Rso = self._computeRsAtSatPress(api, temperature, psat, gas_gravity, method=rs_best_correlation)
+                else:
+                    Rso = self._computeRsAtSatPress(api, temperature, psat, gas_gravity,
+                                                    method={'principle': 'vasquez_beggs', 'variation': 'original'})
 
         if principle == "beggs_and_robinson":
             # Beggs and Robinson, 1975 Defailt EMPower
