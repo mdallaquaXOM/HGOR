@@ -48,15 +48,18 @@ class PVTCORR_HGOR(PVTCORR):
         if method is None:
             method = {'principle': 'vasquez_beggs', 'variation': 'original'}
 
-        if method['principle'] == "vasquez_beggs":
-            if method['variation'] == "original":
+        principle = method['principle'].lower()
+        variation = method['variation'].lower()
+
+        if principle == "vasquez_beggs":
+            if variation == "original":
                 conditions = [api <= 30, (api > 30)]
 
                 C1_choices = C_vasquez_beggs['C1']
                 C2_choices = C_vasquez_beggs['C2']
                 C3_choices = C_vasquez_beggs['C3']
 
-            elif method['variation'] == 'optimize':
+            elif variation == 'optimized':
 
                 conditions = [api <= 30,
                               (api > 30) & (api < parameters[3]),
@@ -66,8 +69,21 @@ class PVTCORR_HGOR(PVTCORR):
                 C2_choices = [*C_vasquez_beggs['C2'], parameters[1]]
                 C3_choices = [*C_vasquez_beggs['C3'], parameters[2]]
 
+            elif variation == 'meija':
+                C1 = np.where(api <= 30, *C_vasquez_beggs_meija_martinez['C1'], )
+                C2 = np.where(api <= 30, *C_vasquez_beggs_meija_martinez['C2'], )
+                C3 = np.where(api <= 30, *C_vasquez_beggs_meija_martinez['C3'], )
+
+                a = pressure ** C3
+                b = - (C2 * api) / (temperature + 459.67)
+
+                Rs = (gas_gravity * a * (10 ** b)) / C1
+
+                return Rs
+
             else:
-                raise ValueError(f"Unknown {method['variation']} for calculating Rs ")
+                msg = f"Unknown variation:{variation} for method:{principle} calculating Rs"
+                raise ValueError(msg)
 
             C1 = np.select(conditions, C1_choices, default=np.nan)
             C2 = np.select(conditions, C2_choices, default=np.nan)
@@ -78,21 +94,15 @@ class PVTCORR_HGOR(PVTCORR):
 
             Rs = C1 * a * gas_gravity * b
 
-        elif method['principle'] == "vasquez_beggs_paper":
-            C1 = np.where(api <= 30, *C_vasquez_beggs_meija_martinez['C1'], )
-            C2 = np.where(api <= 30, *C_vasquez_beggs_meija_martinez['C2'], )
-            C3 = np.where(api <= 30, *C_vasquez_beggs_meija_martinez['C3'], )
-
-            a = pressure ** C3
-            b = - (C2 * api) / (temperature + 459.67)
-
-            Rs = (gas_gravity * a * (10 ** b)) / C1
-
-        elif method['principle'] == "exponential_rational_8":
-            if method['variation'] == 'optimize':
+        elif principle == "exponential_rational_8":
+            if variation == 'optimized':
                 C = parameters
-            else:  # blasingame paper
+            elif variation == 'blasingame':
                 C = C_exp_rat_8_blasingame
+            elif variation == 'meija':
+                C = C_exp_rat_16_meija_martinez
+            else:  # blasingame paper
+                raise Exception(f'No variation: {variation} for method: {principle}')
 
             a = C[0] + C[1] * np.log(temperature)
             b = C[2] + C[3] * np.log(api)
@@ -104,13 +114,13 @@ class PVTCORR_HGOR(PVTCORR):
 
             Rs = np.exp(ln_Rs)
 
-        elif method['principle'] == "exponential_rational_16":
-            if method['variation'] == 'new_paper':
+        elif principle == "exponential_rational_16":
+            if variation == 'michael':
                 # New paper
                 C = C_exp_rat_16_michael
-            elif method['variation'] == 'blasingame':  # Blasingame paper
+            elif variation == 'blasingame':  # Blasingame paper
                 C = C_exp_rat_16_blasingame
-            else:  # method['variation'] == 'optimize':
+            else:  # method['variation'] == 'optimized':
                 C = parameters
 
             ln_t = np.log(temperature)
@@ -131,7 +141,7 @@ class PVTCORR_HGOR(PVTCORR):
 
             ln_pb = np.log(pressure)
 
-            ln_Rs = (A * C[4] - ln_pb * (1+B*C[12])) / (-A*C[5] + B*C[13]*ln_pb)
+            ln_Rs = (A * C[4] - ln_pb * (1 + B * C[12])) / (-A * C[5] + B * C[13] * ln_pb)
 
             Rs = np.exp(ln_Rs)
 
@@ -140,14 +150,17 @@ class PVTCORR_HGOR(PVTCORR):
 
         return Rs
 
-    def compute_RS_values(self, new_parameter=None, source=None):
+    def compute_RS_values(self, correlations=None, new_parameter=None, source=None):
 
         df = self.pvt_table
 
         # filter by source
         if source is not None:
             mask = df['source'] == source
-            df = df[mask]
+            df = df[mask].reset_index(drop=True)
+
+        if correlations is None:
+            correlations = [{'principle': 'vasquez_beggs', 'variation': 'original'}]
 
         # recover inputs
         api = df['API']
@@ -157,75 +170,27 @@ class PVTCORR_HGOR(PVTCORR):
         rs = np.array(df['Rs'])
 
         # New correlations
-        rs_vb_orig = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                      method={'principle': 'vasquez_beggs', 'variation': 'original'})
+        rs_values = {'method': ['measured'], 'values': [rs]}
+        metrics_dic = {'method': [], 'values': []}
+        for correlation in correlations:
+            rs_temp = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                       method=correlation,
+                                                       parameters=new_parameter[correlation['principle']])
 
-        rs_vb_opt = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                     method={'principle': 'vasquez_beggs', 'variation': 'optimize'},
-                                                     parameters=new_parameter['Vasquez_Beggs'])
+            method = correlation['principle'] + '_' + correlation['variation']
+            rs_values['method'].append(method)
+            rs_values['values'].append(rs_temp)
 
-        rs_vb_paper = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                       method={'principle': 'vasquez_beggs_paper'})
+            metrics_dic['method'].append(method)
+            metrics_dic['values'].append(metrics(rs, rs_temp))
 
-        rs_exp_rat_8_paper = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                              method={'principle': 'exponential_rational_8',
-                                                                      'variation': 'paper'})
-
-        rs_exp_rat_8_opt = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                            method={'principle': 'exponential_rational_8', 'variation':
-                                                                'optimize'},
-                                                            parameters=new_parameter['exponential_rational_8'])
-
-        rs_exp_rat_16_paper = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                               method={'principle': 'exponential_rational_16',
-                                                                       'variation': 'blasingame'})
-
-        rs_exp_rat_16_new = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                             method={'principle': 'exponential_rational_16',
-                                                                     'variation': 'new_paper'})
-        # rs_exp_rat_16_opt = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-        #                                                      method={'principle': 'exponential_rational_16',
-        #                                                              'variation': 'optimize'},
-        #                                                      parameters=new_parameter['exponential_rational_16'])
-
-        comparison_dict = {'pressure': p_sat,
-                           'temperature': temperature,
-                           'gas_gravity': gas_gravity,
-                           'api': api,
-                           'Rs': rs,
-                           'VB_original': rs_vb_orig,
-                           'VB_optimized': rs_vb_opt,
-                           'VB_paper': rs_vb_paper,
-                           'Exp_Rational_8_paper': rs_exp_rat_8_paper,
-                           'Exp_Rational_8_optimized': rs_exp_rat_8_opt,
-                           'Exp_Rational_16_paper': rs_exp_rat_16_paper,
-                           'Exp_Rational_16_ed': rs_exp_rat_16_new,
-                           # 'Exp_Rational_16_optimized': rs_exp_rat_16_opt
-                           }
-
-        # Old correlations
-        # comparison_dict = {'Vasquez_Beggs': []}
-        # for p_i, api_i, gas_gravity_i, temperature_i in zip(p_sat, api, gas_gravity, temperature):
-        #     self.sat_pressure = p_i
-        #     rs_vb = super()._computeSolutionGasOilRatio(api_i, temperature_i, p_i, gas_gravity_i)
-        #     comparison_dict['Vasquez_Beggs'].append(rs_vb)
-
-        metrics_ = {'VB_original': metrics(rs, rs_vb_orig),
-                    'VB_optimized': metrics(rs, rs_vb_opt),
-                    'VB_paper': metrics(rs, rs_vb_paper),
-                    'Exp_Rational_8_paper': metrics(rs, rs_exp_rat_8_paper),
-                    'Exp_Rational_8_optimized': metrics(rs, rs_exp_rat_8_opt),
-                    'Exp_Rational_16_paper': metrics(rs, rs_exp_rat_16_paper),
-                    'Exp_Rational_16_ed': metrics(rs, rs_exp_rat_16_new),
-                    # 'Exp_Rational_16_optimized': metrics(rs, rs_exp_rat_16_opt)
-                    }
-
-        # treat outputs
-        comparison_df = pd.DataFrame.from_dict(comparison_dict)
-        comparison_df['HGOR'] = df['HGOR']
-
-        metrics_df = pd.DataFrame.from_dict(metrics_, orient='index')
+        # convert things to dataframe
+        comparison_df = pd.DataFrame(rs_values['values'], index=rs_values['method']).T
+        metrics_df = pd.DataFrame(metrics_dic['values'], index=metrics_dic['method'])
         metrics_df = metrics_df.round(2)
+
+        # add HGOR flag
+        comparison_df['HGOR'] = df['HGOR']
 
         return comparison_df, metrics_df
 
@@ -413,6 +378,7 @@ class PVTCORR_HGOR(PVTCORR):
         Visc_g_c = []
         Visc_w_c = []
 
+        # Old Correlations Below
         for p_sat_i, temperature_i, gas_gravity_i, api_i \
                 in zip(p_sat, temperature, gas_gravity_s, api):
             self.sat_pressure = p_sat_i

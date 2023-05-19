@@ -13,12 +13,25 @@ pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
 
 source_plots = 'PVT_Data'
 
+# Correlations
+correlations = {'Rs': [{'principle': 'vasquez_beggs', 'variation': 'original'},
+                       {'principle': 'vasquez_beggs', 'variation': 'optimize'},
+                       {'principle': 'vasquez_beggs', 'variation': 'paper'},
+                       {'principle': 'exponential_rational_8', 'variation': 'meija'},
+                       {'principle': 'exponential_rational_8', 'variation': 'optimized'},
+                       {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
+                       {'principle': 'exponential_rational_16', 'variation': 'michael'}],
+                }
+
+
+
+
+
 # Calculate RS
 pvt_df, pvt_metrics = pvtc.compute_PVT_values(source=source_plots)
 
 # plots
 for index, row in pvt_df.iterrows():
-
     df = row.to_frame().T
     df = df.explode(['actual', 'calculated']).reset_index(drop=True)
     df_hgor = pvtc.pvt_table[pvtc.pvt_table['source'] == source_plots]

@@ -28,7 +28,7 @@ print('Vasquez and Beggs Optimization')
 C_new_VB = optimizeParameter(pvtc, opt_equation='Rs',
                              algorithm=3,
                              metric_func='ADE',
-                             correlation_method={'principle': 'vasquez_beggs', 'variation': 'optimize'},
+                             correlation_method={'principle': 'vasquez_beggs', 'variation': 'optimized'},
                              source=source_opt,
                              bounds=([1e-2, 1., 15., 40.], [8e-2, 2., 30, 50]),
                              x_start=np.array([0.0178, 1.187, 23.931, 47.]))
@@ -37,7 +37,7 @@ print('Exponential Rational 8 Optimization')
 C_new_8 = optimizeParameter(pvtc, opt_equation='Rs',
                             algorithm=4,
                             metric_func='ADE',
-                            correlation_method={'principle': 'exponential_rational_8', 'variation': 'optimize'},
+                            correlation_method={'principle': 'exponential_rational_8', 'variation': 'optimized'},
                             source=source_opt,
                             x_start=np.array(C_exp_rat_8_blasingame))
 
@@ -50,28 +50,36 @@ C_new_8 = optimizeParameter(pvtc, opt_equation='Rs',
 #                              bounds=np.tile(np.array([[-4], [4]]), (1, 16)),
 #                              x_start=np.array(C_exp_rat_16_blasingame))
 
-new_parameter = {'Vasquez_Beggs': C_new_VB.x,
+new_parameter = {'vasquez_beggs': C_new_VB.x,
                  'exponential_rational_8': C_new_8.x,
-                 # 'exponential_rational_16': C_new_16.x
+                 'exponential_rational_16': None
                  }
 
 # Saving values
-
 pickle.dump(new_parameter, open(r"optimizedParam/opt_results.pickle", "wb"))
 # np.save(r'optimizedParam/opt_results.npy',  new_parameter)
 
 
+correlations = {'Rs': [{'principle': 'vasquez_beggs', 'variation': 'original'},
+                       {'principle': 'vasquez_beggs', 'variation': 'optimized'},
+                       {'principle': 'vasquez_beggs', 'variation': 'meija'},
+                       {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
+                       {'principle': 'exponential_rational_8', 'variation': 'optimized'},
+                       {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
+                       {'principle': 'exponential_rational_16', 'variation': 'michael'}],
+                }
+
 # Calculate RS
-Rs, Rs_metrics = pvtc.compute_RS_values(new_parameter, source=source_curve)
+Rs, Rs_metrics = pvtc.compute_RS_values(correlations['Rs'], new_parameter, source=source_curve)
 
 # plots
-plot_log_log(Rs, measured='Rs',
-             calculated=['VB_original',
-                         'VB_optimized',
-                         'Exp_Rational_8_paper',
-                         'Exp_Rational_8_optimized',
-                         'Exp_Rational_16_paper',
-                         'Exp_Rational_16_ed'
+plot_log_log(Rs, measured='measured',
+             calculated=['vasquez_beggs_original',
+                         'vasquez_beggs_optimized',
+                         'exponential_rational_8_blasingame',
+                         'exponential_rational_8_optimized',
+                         'exponential_rational_16_blasingame',
+                         'exponential_rational_16_michael'
                          # 'Exp_Rational_16_optimized'
                          ],
              metrics_df=Rs_metrics,

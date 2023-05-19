@@ -6,6 +6,7 @@ import plotly.express as px
 import seaborn as sns
 import plotly.subplots as plotly_sp
 import plotly.figure_factory as ff
+from pyDOE2 import lhs
 
 
 def EDA_plotly(df):
@@ -74,7 +75,7 @@ def EDA_seaborn(df):
 
 
 def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property='Rs'):
-    colorsList = ["red", "blue", "green", "purple", "orange", "black"]
+    colorsList = ["red", "blue", "green", "purple", "orange", "black", 'cyan']
 
     fig = plotly_sp.make_subplots(
         rows=3, cols=1,
@@ -86,6 +87,8 @@ def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property
     )
 
     for i, method in enumerate(calculated):
+        if i ==3:
+            a=0
 
         for hgor, df_gor in df.groupby('HGOR'):
 
@@ -170,3 +173,19 @@ def metrics(measured, calculated):
     metrics_ = {'ADE': ADE, 'LSE': LSE, 'AARE': AARE}
 
     return metrics_
+
+
+def sampling(sampling_type='lhs', n=2, n_samples=100, criterion=None,
+             random_state=123, iterations=None, bounds=None):
+
+    if sampling_type == 'lhs':
+        X = lhs(n, samples=n_samples, random_state=random_state)
+
+        for i in range(n):
+            min_val = bounds[0, i]
+            max_val = bounds[1, i]
+            X[:, i] = X[:, i] * (max_val - min_val) + min_val
+    else:
+        raise Exception(f'Sampling method {sampling_type} ot defined')
+
+    return X
