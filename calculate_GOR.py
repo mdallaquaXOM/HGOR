@@ -60,20 +60,20 @@ pickle.dump(new_parameter, open(r"optimizedParam/opt_results.pickle", "wb"))
 # np.save(r'optimizedParam/opt_results.npy',  new_parameter)
 
 
-correlations = {'Rs': [{'principle': 'vasquez_beggs', 'variation': 'original'},
-                       {'principle': 'vasquez_beggs', 'variation': 'optimized'},
-                       {'principle': 'vasquez_beggs', 'variation': 'meija'},
-                       {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
-                       {'principle': 'exponential_rational_8', 'variation': 'optimized'},
-                       {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
-                       {'principle': 'exponential_rational_16', 'variation': 'michael'}],
-                }
+properties = {'Rs': [{'principle': 'vasquez_beggs', 'variation': 'original'},
+                     {'principle': 'vasquez_beggs', 'variation': 'optimized'},
+                     {'principle': 'vasquez_beggs', 'variation': 'meija'},
+                     {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
+                     {'principle': 'exponential_rational_8', 'variation': 'optimized'},
+                     {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
+                     {'principle': 'exponential_rational_16', 'variation': 'michael'}],
+              }
 
 # Calculate RS
-Rs, Rs_metrics = pvtc.compute_RS_values(correlations['Rs'], new_parameter, source=source_curve)
+pvt_prop, pvt_metrics = pvtc.compute_RS_values(properties, new_parameter, source=source_curve)
 
 # plots
-plot_log_log(Rs, measured='measured',
+plot_log_log(pvt_prop['Rs'], measured='measured',
              calculated=['vasquez_beggs_original',
                          'vasquez_beggs_optimized',
                          'exponential_rational_8_blasingame',
@@ -82,5 +82,5 @@ plot_log_log(Rs, measured='measured',
                          'exponential_rational_16_michael'
                          # 'Exp_Rational_16_optimized'
                          ],
-             metrics_df=Rs_metrics,
+             metrics_df=pvt_metrics['Rs'],
              title='Rs (scf/stb) at saturation pressure')

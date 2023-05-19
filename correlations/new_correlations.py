@@ -150,7 +150,7 @@ class PVTCORR_HGOR(PVTCORR):
 
         return Rs
 
-    def compute_RS_values(self, correlations=None, new_parameter=None, source=None):
+    def compute_RS_values(self, properties, new_parameter=None, source=None):
 
         df = self.pvt_table
 
@@ -158,9 +158,6 @@ class PVTCORR_HGOR(PVTCORR):
         if source is not None:
             mask = df['source'] == source
             df = df[mask].reset_index(drop=True)
-
-        if correlations is None:
-            correlations = [{'principle': 'vasquez_beggs', 'variation': 'original'}]
 
         # recover inputs
         api = df['API']
@@ -170,29 +167,36 @@ class PVTCORR_HGOR(PVTCORR):
         rs = np.array(df['Rs'])
 
         # New correlations
-        rs_values = {'method': ['measured'], 'values': [rs]}
-        metrics_dic = {'method': [], 'values': []}
-        for correlation in correlations:
-            rs_temp = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                       method=correlation,
-                                                       parameters=new_parameter[correlation['principle']])
+        comparison_star = {}
+        metrics_star = {}
 
-            method = correlation['principle'] + '_' + correlation['variation']
-            rs_values['method'].append(method)
-            rs_values['values'].append(rs_temp)
+        for property_, correlations in properties.items():
+            rs_values = {'method': ['measured'], 'values': [rs]}
+            metrics_dic = {'method': [], 'values': []}
+            for correlation in correlations:
+                temp = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                        method=correlation,
+                                                        parameters=new_parameter[correlation['principle']])
 
-            metrics_dic['method'].append(method)
-            metrics_dic['values'].append(metrics(rs, rs_temp))
+                method = correlation['principle'] + '_' + correlation['variation']
+                rs_values['method'].append(method)
+                rs_values['values'].append(temp)
 
-        # convert things to dataframe
-        comparison_df = pd.DataFrame(rs_values['values'], index=rs_values['method']).T
-        metrics_df = pd.DataFrame(metrics_dic['values'], index=metrics_dic['method'])
-        metrics_df = metrics_df.round(2)
+                metrics_dic['method'].append(method)
+                metrics_dic['values'].append(metrics(rs, temp))
 
-        # add HGOR flag
-        comparison_df['HGOR'] = df['HGOR']
+            # convert things to dataframe
+            comparison_df = pd.DataFrame(rs_values['values'], index=rs_values['method']).T
+            metrics_df = pd.DataFrame(metrics_dic['values'], index=metrics_dic['method'])
+            metrics_df = metrics_df.round(2)
 
-        return comparison_df, metrics_df
+            # add HGOR flag
+            comparison_df['HGOR'] = df['HGOR']
+
+            comparison_star[property_] = comparison_df
+            metrics_star[property_] = metrics_df
+
+        return comparison_star, metrics_star
 
     def _compute_bubblePressure(self, api, temperature, rs, gas_gravity
                                 , method=None, parameters=None):
