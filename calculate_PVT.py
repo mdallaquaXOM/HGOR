@@ -28,7 +28,7 @@ correlations = {'Rs': [{'principle': 'vasquez_beggs', 'variation': 'original'},
 
 
 # Calculate RS
-pvt_df, pvt_metrics = pvtc.compute_PVT_values(source=source_plots)
+pvt_df, pvt_metrics = pvtc.compute_PVT_table(source=source_plots)
 
 # plots
 for index, row in pvt_df.iterrows():

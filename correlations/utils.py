@@ -74,7 +74,7 @@ def EDA_seaborn(df):
     g.figure.savefig(rf'figures/pairplots_Rs.png')
 
 
-def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property='Rs'):
+def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property='Rs', log_axis=True):
     colorsList = ["red", "blue", "green", "purple", "orange", "black", 'cyan']
 
     fig = plotly_sp.make_subplots(
@@ -87,9 +87,6 @@ def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property
     )
 
     for i, method in enumerate(calculated):
-        if i ==3:
-            a=0
-
         for hgor, df_gor in df.groupby('HGOR'):
 
             if hgor:
@@ -129,15 +126,17 @@ def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property
         )
         # fig.add_trace(ff.create_table(metrics_df, index=True), row=2, col=1)
 
-    fig.update_xaxes(type="log",
-                     title_text="Measured",
+    fig.update_xaxes(title_text="Measured",
                      minor=dict(ticks="inside", showgrid=True))
 
-    fig.update_yaxes(type="log",
-                     # scaleanchor="x",
+    fig.update_yaxes(# scaleanchor="x",
                      scaleratio=1,
                      title_text="Calculated",
                      )
+
+    if log_axis:
+        fig.update_xaxes(type="log")
+        fig.update_yaxes(type="log")
 
     fig.update_layout(
         title=dict(text=title, font=dict(size=50), automargin=True)

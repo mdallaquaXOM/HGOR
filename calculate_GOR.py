@@ -50,37 +50,46 @@ C_new_8 = optimizeParameter(pvtc, opt_equation='Rs',
 #                              bounds=np.tile(np.array([[-4], [4]]), (1, 16)),
 #                              x_start=np.array(C_exp_rat_16_blasingame))
 
-new_parameter = {'vasquez_beggs': C_new_VB.x,
-                 'exponential_rational_8': C_new_8.x,
-                 'exponential_rational_16': None
-                 }
+new_parameters = {'Rs': {'vasquez_beggs': C_new_VB.x,
+                         'exponential_rational_8': C_new_8.x,
+                         'exponential_rational_16': None
+                         }}
 
 # Saving values
-pickle.dump(new_parameter, open(r"optimizedParam/opt_results.pickle", "wb"))
+pickle.dump(new_parameters, open(r"optimizedParam/opt_results.pickle", "wb"))
 # np.save(r'optimizedParam/opt_results.npy',  new_parameter)
 
 
-properties = {'Rs': [{'principle': 'vasquez_beggs', 'variation': 'original'},
-                     {'principle': 'vasquez_beggs', 'variation': 'optimized'},
-                     {'principle': 'vasquez_beggs', 'variation': 'meija'},
+properties = {'Rs': [
+                     {'principle': 'vasquez_beggs', 'variation': 'original'},
+                     # {'principle': 'vasquez_beggs', 'variation': 'optimized'},
+                     # {'principle': 'vasquez_beggs', 'variation': 'meija'},
                      {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
                      {'principle': 'exponential_rational_8', 'variation': 'optimized'},
-                     {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
-                     {'principle': 'exponential_rational_16', 'variation': 'michael'}],
+                     # {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
+                     # {'principle': 'exponential_rational_16', 'variation': 'michael'},
+                    ],
               }
 
 # Calculate RS
-pvt_prop, pvt_metrics = pvtc.compute_RS_values(properties, new_parameter, source=source_curve)
+pvt_prop, pvt_metrics = pvtc.compute_PVT_Correlations(properties,
+                                                      new_parameters=new_parameters,
+                                                      source=source_curve,
+                                                      rs_best_correlation={'principle': 'exponential_rational_8',
+                                                                           'variation': 'optimized'})
 
 # plots
+# colums2plot = ['vasquez_beggs_original',
+#                          'vasquez_beggs_optimized',
+#                          'exponential_rational_8_blasingame',
+#                          'exponential_rational_8_optimized',
+#                          'exponential_rational_16_blasingame',
+#                          'exponential_rational_16_michael'
+#                          # 'Exp_Rational_16_optimized'
+#                          ]
+colums2plot = pvt_prop['Rs'].drop(['measured', 'HGOR'], axis=1).columns.values
+
 plot_log_log(pvt_prop['Rs'], measured='measured',
-             calculated=['vasquez_beggs_original',
-                         'vasquez_beggs_optimized',
-                         'exponential_rational_8_blasingame',
-                         'exponential_rational_8_optimized',
-                         'exponential_rational_16_blasingame',
-                         'exponential_rational_16_michael'
-                         # 'Exp_Rational_16_optimized'
-                         ],
+             calculated=colums2plot,
              metrics_df=pvt_metrics['Rs'],
              title='Rs (scf/stb) at saturation pressure')

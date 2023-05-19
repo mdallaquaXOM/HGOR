@@ -63,7 +63,7 @@ pickle.dump(new_parameter, open(r"optimizedParam/opt_results.pickle", "wb"))
 
 
 # Calculate RS
-Rs, Rs_metrics = pvtc.compute_RS_values(new_parameter, source=source_curve)
+Rs, Rs_metrics = pvtc.compute_PVT_Correlations(new_parameter, source=source_curve)
 
 # plots
 plot_log_log(Rs, measured='Rs',

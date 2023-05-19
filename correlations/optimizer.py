@@ -39,9 +39,9 @@ def optimizeParameter(pvt_class,
     if opt_equation == 'Rs':
         # objective function
         def obj_function(parameters):
-            rs_calc = pvt_class._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                            method=correlation_method,
-                                                            parameters=parameters)
+            rs_calc = pvt_class._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
+                                                     method=correlation_method,
+                                                     parameters=parameters)
             metrics_ = metrics(rs_measured, rs_calc)
             obj = metrics_[metric_func]
 

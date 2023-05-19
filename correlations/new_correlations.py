@@ -41,12 +41,13 @@ class PVTCORR_HGOR(PVTCORR):
 
         self.pvt_table = pvt_table
 
-    def _computeSolutionGasOilRatio(self, api, temperature,
-                                    pressure, gas_gravity, method=None,
-                                    parameters=None):
+    @staticmethod
+    def _computeRsAtSatPress(api, temperature,
+                             pressure, gas_gravity, method=None,
+                             parameters=None):
         # standard values
         if method is None:
-            method = {'principle': 'vasquez_beggs', 'variation': 'original'}
+            method = {'principle': 'exponential_rational_8', 'variation': 'optimized'}
 
         principle = method['principle'].lower()
         variation = method['variation'].lower()
@@ -96,11 +97,18 @@ class PVTCORR_HGOR(PVTCORR):
 
         elif principle == "exponential_rational_8":
             if variation == 'optimized':
-                C = parameters
+                if parameters is None:
+                    new_parameter = pickle.load(open(r"optimizedParam/opt_results.pickle", "rb"))
+                    C = new_parameter['Rs']['exponential_rational_8']
+                else:
+                    C = parameters
+
             elif variation == 'blasingame':
                 C = C_exp_rat_8_blasingame
+
             elif variation == 'meija':
                 C = C_exp_rat_16_meija_martinez
+
             else:  # blasingame paper
                 raise Exception(f'No variation: {variation} for method: {principle}')
 
@@ -150,56 +158,8 @@ class PVTCORR_HGOR(PVTCORR):
 
         return Rs
 
-    def compute_RS_values(self, properties, new_parameter=None, source=None):
-
-        df = self.pvt_table
-
-        # filter by source
-        if source is not None:
-            mask = df['source'] == source
-            df = df[mask].reset_index(drop=True)
-
-        # recover inputs
-        api = df['API']
-        gas_gravity = df['gamma_c']
-        temperature = df['temperature']
-        p_sat = np.array(df['p_sat'])
-        rs = np.array(df['Rs'])
-
-        # New correlations
-        comparison_star = {}
-        metrics_star = {}
-
-        for property_, correlations in properties.items():
-            rs_values = {'method': ['measured'], 'values': [rs]}
-            metrics_dic = {'method': [], 'values': []}
-            for correlation in correlations:
-                temp = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                        method=correlation,
-                                                        parameters=new_parameter[correlation['principle']])
-
-                method = correlation['principle'] + '_' + correlation['variation']
-                rs_values['method'].append(method)
-                rs_values['values'].append(temp)
-
-                metrics_dic['method'].append(method)
-                metrics_dic['values'].append(metrics(rs, temp))
-
-            # convert things to dataframe
-            comparison_df = pd.DataFrame(rs_values['values'], index=rs_values['method']).T
-            metrics_df = pd.DataFrame(metrics_dic['values'], index=metrics_dic['method'])
-            metrics_df = metrics_df.round(2)
-
-            # add HGOR flag
-            comparison_df['HGOR'] = df['HGOR']
-
-            comparison_star[property_] = comparison_df
-            metrics_star[property_] = metrics_df
-
-        return comparison_star, metrics_star
-
-    def _compute_bubblePressure(self, api, temperature, rs, gas_gravity
-                                , method=None, parameters=None):
+    @staticmethod
+    def _compute_bubblePressure(api, temperature, rs, gas_gravity, method=None, parameters=None):
         if method == 'vasquez_beggs':
             conditions = [api <= 30, (api > 30)]
 
@@ -280,6 +240,130 @@ class PVTCORR_HGOR(PVTCORR):
 
         return pb
 
+    def _computeBoAtSatPres(self, api, temperature, psat, gas_gravity, method=None, rs=None, rs_best_correlation=None):
+
+        # standard values
+        if method is None:
+            method = {'principle': 'vasquez_beggs', 'variation': 'original'}
+
+        principle = method['principle'].lower()
+        variation = method['variation'].lower()
+
+        if rs is None:
+            if principle == "exponential_rational_15":
+                rs = self._computeRsAtSatPress(api, temperature, psat, gas_gravity, method=rs_best_correlation)
+            elif principle == "vasquez_beggs":
+                if variation == "rs_update":
+                    rs = self._computeRsAtSatPress(api, temperature, psat, gas_gravity, method=rs_best_correlation)
+                else:
+                    rs = self._computeRsAtSatPress(api, temperature, psat, gas_gravity,
+                                                   method={'principle': 'vasquez_beggs', 'variation': 'original'})
+
+        if principle == "vasquez_beggs":
+            if variation == "meija":
+
+                C4_choices = C_vasquez_beggs_meija_martinez['C4']
+                C5_choices = C_vasquez_beggs_meija_martinez['C5']
+                C6_choices = C_vasquez_beggs_meija_martinez['C6']
+            elif variation == "original":
+                C4_choices = C_vasquez_beggs['C4']
+                C5_choices = C_vasquez_beggs['C5']
+                C6_choices = C_vasquez_beggs['C6']
+
+            elif variation == "rs_update":
+
+                C4_choices = C_vasquez_beggs['C4']
+                C5_choices = C_vasquez_beggs['C5']
+                C6_choices = C_vasquez_beggs['C6']
+
+            else:
+                raise Exception(f'Bob method {principle} with variation ({variation}) not coded')
+
+            conditions = [api <= 30, (api > 30)]
+
+            C4 = np.select(conditions, C4_choices, default=np.nan)
+            C5 = np.select(conditions, C5_choices, default=np.nan)
+            C6 = np.select(conditions, C6_choices, default=np.nan)
+
+            Tr = temperature - 60.
+            a = Tr * (api / gas_gravity)
+
+            Bob = 1. + C4 * rs + (C5 + C6 * rs) * a
+
+        elif principle == "exponential_rational_15":
+            C = C_exp_rat_15_Bob
+
+            ln_t = np.log(temperature)
+            ln_api = np.log(api)
+            ln_rs = np.log(rs)
+            ln_gas_gravity = np.log(gas_gravity)
+            ln_psat = np.log(psat)
+
+            ln_t_2 = ln_t ** 2
+            ln_api_2 = ln_api ** 2
+            ln_rs_2 = ln_rs ** 2
+            ln_gas_gravity_2 = ln_gas_gravity ** 2
+            ln_psat_2 = ln_psat ** 2
+
+            ln_Bob = (C[0] + C[1] * ln_t + C[2] * ln_t_2) * \
+                     (C[3] + C[4] * ln_api + C[5] * ln_api_2) * \
+                     (C[6] + C[7] * ln_rs + C[8] * ln_rs_2) * \
+                     (C[9] + C[10] * ln_gas_gravity + C[11] * ln_gas_gravity_2) * \
+                     (C[12] + C[13] * ln_psat + C[14] * ln_psat_2)
+
+            Bob = np.exp(ln_Bob)
+
+        else:
+            raise Exception(f'Method {method} not implemented')
+
+        return Bob
+
+    def _computeMuobAtSatPres(self, api, temperature, psat, gas_gravity, method=None, Rso=None,
+                              rs_best_correlation=None):
+        # standard values
+        if method is None:
+            method = {'principle': 'Beggs_and_Robinson'}
+
+        principle = method['principle'].lower()
+
+        if Rso is None:
+            Rso = self._computeRsAtSatPress(api, temperature, psat, gas_gravity, method=rs_best_correlation)
+
+        if principle == "beggs_and_robinson":
+            # Beggs and Robinson, 1975 Defailt EMPower
+            Visc_oil = self.computeDeadOilViscosity(api, temperature)
+            a = 10.715 * ((Rso + 100.0) ** (-0.515))
+            b = 5.44 * ((Rso + 150.0) ** (-0.338))
+            Visc_oil = a * (Visc_oil ** b)
+
+        elif principle == "exponential_rational_15":
+            C = C_exp_rat_15_muob
+
+            ln_t = np.log(temperature)
+            ln_api = np.log(api)
+            ln_rs = np.log(Rso)
+            ln_gas_gravity = np.log(gas_gravity)
+            ln_psat = np.log(psat)
+
+            ln_t_2 = ln_t ** 2
+            ln_api_2 = ln_api ** 2
+            ln_rs_2 = ln_rs ** 2
+            ln_gas_gravity_2 = ln_gas_gravity ** 2
+            ln_psat_2 = ln_psat ** 2
+
+            ln_muob = (C[0] + C[1] * ln_t + C[2] * ln_t_2) * \
+                      (C[3] + C[4] * ln_api + C[5] * ln_api_2) * \
+                      (C[6] + C[7] * ln_rs + C[8] * ln_rs_2) * \
+                      (C[9] + C[10] * ln_gas_gravity + C[11] * ln_gas_gravity_2) * \
+                      (C[12] + C[13] * ln_psat + C[14] * ln_psat_2)
+
+            Visc_oil = np.exp(ln_muob)
+
+        else:
+            raise Exception(f'Method {method} not implemented')
+
+        return Visc_oil
+
     def compute_pb_values(self, source=None):
         df = self.pvt_table
 
@@ -342,7 +426,7 @@ class PVTCORR_HGOR(PVTCORR):
 
         return comparison_df, metrics_df
 
-    def compute_PVT_values(self, source=None, correlations=None):
+    def compute_PVT_table(self, source=None, correlations=None):
         df = self.pvt_table
 
         # filter by source
@@ -367,13 +451,13 @@ class PVTCORR_HGOR(PVTCORR):
         new_parameter = pickle.load(open(r"optimizedParam/opt_results.pickle", "rb"))
 
         # Gor at saturation pressure - Rs
-        rgo_c = self._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
-                                                 method={'principle': 'exponential_rational_8',
-                                                         'variation': 'optimize'},
-                                                 parameters=new_parameter['exponential_rational_8'])
+        rgo_c = self._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
+                                          method={'principle': 'exponential_rational_8',
+                                                  'variation': 'optimize'},
+                                          parameters=new_parameter['exponential_rational_8'])
 
         # old correlations
-        bo_c = self._computeLiveOilFVF(api, temperature, p_sat, gas_gravity, rgo_c)
+        bo_c = self._computeBoAtSatPres(api, temperature, p_sat, gas_gravity, rgo_c)
 
         bo_c_old = []
         bg_c = []
@@ -425,36 +509,88 @@ class PVTCORR_HGOR(PVTCORR):
 
         return comparison_df, metrics_df
 
-    def _computeLiveOilFVF(self, api, temperature, pressure, gas_gravity,
-                           rs, method=None, parameters=None):
-        # Vazquez and Beggs, 1980 (Default in EMPower)
+    def compute_PVT_Correlations(self, properties, rs_best_correlation=None,
+                                 new_parameters=None, source=None):
 
-        # standard values
-        if method is None:
-            method = {'principle': 'vasquez_beggs', 'variation': 'original'}
+        df = self.pvt_table
 
-        if method['principle'] == "vasquez_beggs":
-            if method['variation'] == "blasingame":
-                C4_choices = C_vasquez_beggs_meija_martinez['C4']
-                C5_choices = C_vasquez_beggs_meija_martinez['C5']
-                C6_choices = C_vasquez_beggs_meija_martinez['C6']
+        # filter by source
+        if source is not None:
+            mask = df['source'] == source
+            df = df[mask].reset_index(drop=True)
+
+        # recover inputs
+        api = df['API']
+        gas_gravity = df['gamma_c']
+        temperature = df['temperature']
+        p_sat = np.array(df['p_sat'])
+        rs = np.array(df['Rs'])
+        Bo_psat = np.array(df['Bo_psat'])
+        visc_o_psat = np.array(df['visc_o_psat'])
+
+        # New correlations
+        comparison_star = {}
+        metrics_star = {}
+
+        new_parameter = None
+        newparameter_prop_correl = None
+
+        for property_, correlations in properties.items():
+            # get the new parameters for the property in question
+            if new_parameters is not None:
+                if property_ in new_parameters:
+                    new_parameter = new_parameters[property_]
+
+            # get measured value
+            if property_ == 'Rs':
+                value_measured = rs
+            elif property_ == 'Bo':
+                value_measured = Bo_psat
+            elif property_ == 'muob':
+                value_measured = visc_o_psat
             else:
-                C4_choices = C_vasquez_beggs['C4']
-                C5_choices = C_vasquez_beggs['C5']
-                C6_choices = C_vasquez_beggs['C6']
+                raise Exception(f'Not able to get the measured values')
 
-            conditions = [api <= 30, (api > 30)]
+            prop_values = {'method': ['measured'], 'values': [value_measured]}
+            metrics_dic = {'method': [], 'values': []}
 
-            C4 = np.select(conditions, C4_choices, default=np.nan)
-            C5 = np.select(conditions, C5_choices, default=np.nan)
-            C6 = np.select(conditions, C6_choices, default=np.nan)
+            for correlation in correlations:
+                if new_parameter is not None:
+                    newparameter_prop_correl = new_parameter[correlation['principle']]
 
-            Tr = temperature - 60.
-            a = Tr * (api / gas_gravity)
+                # function to call will depend on the property_
+                if property_ == 'Rs':
+                    temp = self._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
+                                                     method=correlation,
+                                                     parameters=newparameter_prop_correl)
+                elif property_ == 'Bo':
+                    temp = self._computeBoAtSatPres(api, temperature, p_sat, gas_gravity,
+                                                    method=correlation,
+                                                    rs_best_correlation=rs_best_correlation)
 
-            Bo = 1. + C4 * rs + (C5 + C6 * rs) * a
+                elif property_ == 'muob':
+                    temp = self._computeMuobAtSatPres(api, temperature, p_sat, gas_gravity,
+                                                      method=correlation,
+                                                      rs_best_correlation=rs_best_correlation)
+                else:
+                    raise Exception(f'Property unknown {property_}')
 
-        else:
-            raise Exception(f'Method {method} not implemented')
+                method = correlation['principle'] + '_' + correlation['variation']
+                prop_values['method'].append(method)
+                prop_values['values'].append(temp)
 
-        return Bo
+                metrics_dic['method'].append(method)
+                metrics_dic['values'].append(metrics(value_measured, temp))
+
+            # convert things to dataframe
+            comparison_df = pd.DataFrame(prop_values['values'], index=prop_values['method']).T
+            metrics_df = pd.DataFrame(metrics_dic['values'], index=metrics_dic['method'])
+            metrics_df = metrics_df.round(2)
+
+            # add HGOR flag
+            comparison_df['HGOR'] = df['HGOR']
+
+            comparison_star[property_] = comparison_df
+            metrics_star[property_] = metrics_df
+
+        return comparison_star, metrics_star

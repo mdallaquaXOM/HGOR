@@ -19,23 +19,21 @@ source_curve = 'PVT_Data'
 # EDA_plotly(pvtc.pvt_table)
 
 
-correlations = {'Bo': [{'principle': 'vasquez_beggs', 'variation': 'original'},
-                       {'principle': 'vasquez_beggs', 'variation': 'rs_update'},
-                       {'principle': 'exponential_rational_15', 'variation': 'michael'}],
-                }
+properties = {'Bo': [{'principle': 'vasquez_beggs', 'variation': 'original'},
+                     {'principle': 'vasquez_beggs', 'variation': 'rs_update'},
+                     {'principle': 'exponential_rational_15', 'variation': 'michael'}],
+              }
 
-# Calculate RS
-Rs, Rs_metrics = pvtc.compute_Bo_values(correlations, source=source_curve)
+# Calculate Bo
+pvt_prop, pvt_metrics = pvtc.compute_PVT_Correlations(properties,
+                                                      source=source_curve,
+                                                      rs_best_correlation={'principle': 'exponential_rational_8',
+                                                                           'variation': 'optimized'})
 
-# plots
-plot_log_log(Rs, measured='Rs',
-             calculated=['VB_original',
-                         'VB_optimized',
-                         'Exp_Rational_8_paper',
-                         'Exp_Rational_8_optimized',
-                         'Exp_Rational_16_paper',
-                         'Exp_Rational_16_ed'
-                         # 'Exp_Rational_16_optimized'
-                         ],
-             metrics_df=Rs_metrics,
-             title='Rs (scf/stb) at saturation pressure')
+colums2plot = pvt_prop['Bo'].drop(['measured', 'HGOR'], axis=1).columns.values
+
+plot_log_log(pvt_prop['Bo'], measured='measured',
+             calculated=colums2plot,
+             metrics_df=pvt_metrics['Bo'],
+             title='Bo (Rb/stb) at saturation pressure',
+             log_axis=False)
