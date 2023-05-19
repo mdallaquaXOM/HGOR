@@ -78,38 +78,54 @@ def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property
     colorsList = ["red", "blue", "green", "purple", "orange", "black", 'cyan']
 
     fig = plotly_sp.make_subplots(
-        rows=3, cols=1,
+        rows=3, cols=2,
         # vertical_spacing=0.03,
-        specs=[[{"type": "scatter", 'rowspan': 2}],
-               [None],
-               [{"type": "table"}]
+        subplot_titles=('Linear Scale', 'Log Scale'),
+        specs=[[{"type": "scatter", 'rowspan': 2}, {"type": "scatter", 'rowspan': 2}],
+               [None, None],
+               [{"type": "table"}, {}]
                ]
     )
 
-    for i, method in enumerate(calculated):
-        for hgor, df_gor in df.groupby('HGOR'):
+    for i_scale, scale in enumerate(['linear', 'log'], 1):
+        if i_scale == 1:
+            showlegend = True
+        else:
+            showlegend = False
 
-            if hgor:
-                name = method + '_H_gor'
-                symbol = 'diamond'
-            else:
-                name = method + '_l_gor'
-                symbol = 'x'
+        legendGroup_counter = 0
+        for i, method in enumerate(calculated):
 
-            fig.add_trace(go.Scatter(mode="markers", x=df_gor[measured], y=df_gor[method],
-                                     name=name,
-                                     marker={'color': colorsList[i], 'symbol': symbol}),
-                          row=1, col=1
-                          )
+            for hgor, df_gor in df.groupby('HGOR'):
 
-    # add 45 line
-    min_x = df[measured].min().min()
-    max_x = df[measured].max().max()
+                if hgor:
+                    name = method + '_H_gor'
+                    symbol = 'diamond'
+                else:
+                    name = method + '_l_gor'
+                    symbol = 'x'
 
-    x_45 = np.linspace(min_x, max_x)
-    fig.add_trace(go.Scatter(x=x_45, y=x_45,
-                             name='Perfect Trend',
-                             line=dict(color='black', dash='dash')), row=1, col=1)
+                fig.add_trace(go.Scatter(mode="markers", x=df_gor[measured], y=df_gor[method],
+                                         name=name,
+                                         marker={'color': colorsList[i], 'symbol': symbol},
+                                         legendgroup=f'group{legendGroup_counter}', showlegend=showlegend),
+                              row=1, col=i_scale
+                              )
+                legendGroup_counter += 1
+
+        # add 45 line
+        min_x = df[measured].min().min()
+        max_x = df[measured].max().max()
+
+        x_45 = np.linspace(min_x, max_x)
+        fig.add_trace(go.Scatter(x=x_45, y=x_45,
+                                 name='Perfect Trend',
+                                 line=dict(color='black', dash='dash'),
+                                 legendgroup=f'group{legendGroup_counter}', showlegend=showlegend),
+                      row=1, col=i_scale)
+
+        fig.update_xaxes(type=scale, row=1, col=i_scale)
+        fig.update_yaxes(type=scale, row=1, col=i_scale)
 
     # Add table with metrics
     if metrics_df is not None:
@@ -129,14 +145,10 @@ def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property
     fig.update_xaxes(title_text="Measured",
                      minor=dict(ticks="inside", showgrid=True))
 
-    fig.update_yaxes(# scaleanchor="x",
-                     scaleratio=1,
-                     title_text="Calculated",
-                     )
-
-    if log_axis:
-        fig.update_xaxes(type="log")
-        fig.update_yaxes(type="log")
+    fig.update_yaxes(  # scaleanchor="x",
+        scaleratio=1,
+        title_text="Calculated",
+    )
 
     fig.update_layout(
         title=dict(text=title, font=dict(size=50), automargin=True)
@@ -176,7 +188,6 @@ def metrics(measured, calculated):
 
 def sampling(sampling_type='lhs', n=2, n_samples=100, criterion=None,
              random_state=123, iterations=None, bounds=None):
-
     if sampling_type == 'lhs':
         X = lhs(n, samples=n_samples, random_state=random_state)
 
