@@ -7,3 +7,5 @@ plotly
 statsmodels
 tqdm
 seaborn
+scikit-learn
+pyDOE2

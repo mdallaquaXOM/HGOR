@@ -54,8 +54,7 @@ class PVTCORR:
         Psat = self.sat_pressure
         Tsat = temperature
         API = api
-        # Gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, API)
-        Gamma_gs = gas_gravity
+        Gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, API)
         a = C1 * Gamma_gs
         c = np.exp(C3 * API / (Tsat + 459.67))
         if pressure <= Psat:

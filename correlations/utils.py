@@ -73,7 +73,7 @@ def EDA_seaborn(df):
     g.figure.savefig(rf'figures/pairplots_Rs.png')
 
 
-def plot_log_log(df, measured, calculated, title, metrics_df=None):
+def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property='Rs'):
     colorsList = ["red", "blue", "green", "purple", "orange", "black"]
 
     fig = plotly_sp.make_subplots(
@@ -141,7 +141,7 @@ def plot_log_log(df, measured, calculated, title, metrics_df=None):
     )
 
     fig.show()
-    fig.write_html(fr"figures/Rs.html")
+    fig.write_html(fr"figures/{property}.html")
 
 
 def plot_pairplots(df, hue='', origin='xom'):
@@ -153,6 +153,11 @@ def plot_pairplots(df, hue='', origin='xom'):
 
 
 def metrics(measured, calculated):
+    # remove nan
+    nan_measured = ~np.isnan(measured)
+    measured = measured[nan_measured]
+    calculated = calculated[nan_measured]
+
     ln_measured = np.log(measured)
     ln_calculated = np.log(calculated)
 
@@ -162,6 +167,6 @@ def metrics(measured, calculated):
     LSE = np.sum(np.power(ln_measured - ln_calculated, 2))
     AARE = np.sum(np.abs((measured - calculated) / calculated)) * 100 / n_samples
 
-    metrics = {'ADE': ADE, 'LSE': LSE, 'AARE': AARE}
+    metrics_ = {'ADE': ADE, 'LSE': LSE, 'AARE': AARE}
 
-    return metrics
+    return metrics_

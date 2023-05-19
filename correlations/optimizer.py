@@ -5,6 +5,7 @@ from scipy.optimize import minimize, Bounds, differential_evolution
 
 
 def optimizeParameter(pvt_class,
+                      opt_equation='Rs',
                       source=None,
                       metric_func='LSE',
                       algorithm=3,
@@ -23,6 +24,9 @@ def optimizeParameter(pvt_class,
         mask = df['source'] == source
         df = df[mask]
 
+    if bounds is not None:
+        bounds = Bounds(*bounds)
+
     # recover inputs
     api = df['API']
     gas_gravity = df['gamma_c']
@@ -32,20 +36,32 @@ def optimizeParameter(pvt_class,
     # For metric evaluation
     rs_measured = np.array(df['Rs'])
 
-    # objective function
-    def obj_function(parameters):
-        rs_calc = pvt_class._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+    if opt_equation == 'Rs':
+        # objective function
+        def obj_function(parameters):
+            rs_calc = pvt_class._computeSolutionGasOilRatio(api, temperature, p_sat, gas_gravity,
+                                                            method=correlation_method,
+                                                            parameters=parameters)
+            metrics_ = metrics(rs_measured, rs_calc)
+            obj = metrics_[metric_func]
+
+            return obj
+    elif opt_equation == 'pb':
+        def obj_function(parameters):
+            pb_calc = pvt_class._compute_bubblePressure(api, temperature, rs_measured, gas_gravity,
                                                         method=correlation_method,
                                                         parameters=parameters)
-        metrics_ = metrics(rs_measured, rs_calc)
-        obj = metrics_[metric_func]
+            metrics_ = metrics(p_sat, pb_calc)
+            obj = metrics_[metric_func]
+            # if obj == np.inf:
+            #     obj = pvt_class.LARGE
 
-        return obj
+            return obj
 
     # Optimization
     if algorithm == 1:
         print('\tOptimizer: Global optimization')
-        x_new = differential_evolution(obj_function, bounds=Bounds(*bounds), x0=x_start, tol=1e-8)
+        x_new = differential_evolution(obj_function, bounds=bounds, x0=x_start, tol=1e-8, strategy='best2exp')
     else:
         if algorithm == 2:
             print('\tOptimizer: Trust-Region Constrained Algorithm')
@@ -58,9 +74,6 @@ def optimizeParameter(pvt_class,
             method = 'BFGS'
         else:
             method = None
-
-        if bounds is not None:
-            bounds = Bounds(*bounds)
 
         x_new = minimize(obj_function, x_start, method=method, tol=1e-8, bounds=bounds,
                          options={'disp': True})
