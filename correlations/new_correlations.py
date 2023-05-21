@@ -426,7 +426,7 @@ class PVTCORR_HGOR(PVTCORR):
 
         return comparison_df, metrics_df
 
-    def compute_PVT_table(self, source=None, correlations=None):
+    def construct_PVT_table(self, source=None, methods=None):
         df = self.pvt_table
 
         # filter by source

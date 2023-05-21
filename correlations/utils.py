@@ -79,6 +79,7 @@ def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property
 
     fig = plotly_sp.make_subplots(
         rows=3, cols=2,
+        shared_xaxes='rows', shared_yaxes='rows',
         # vertical_spacing=0.03,
         subplot_titles=('Linear Scale', 'Log Scale'),
         specs=[[{"type": "scatter", 'rowspan': 2}, {"type": "scatter", 'rowspan': 2}],

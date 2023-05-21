@@ -15,7 +15,7 @@ source_plots = 'PVT_Data'
 
 # Correlations
 correlations = {'Rs': [{'principle': 'vasquez_beggs', 'variation': 'original'},
-                       {'principle': 'vasquez_beggs', 'variation': 'optimize'},
+                       {'principle': 'vasquez_beggs', 'variation': 'optimized'},
                        {'principle': 'vasquez_beggs', 'variation': 'paper'},
                        {'principle': 'exponential_rational_8', 'variation': 'meija'},
                        {'principle': 'exponential_rational_8', 'variation': 'optimized'},
@@ -24,20 +24,3 @@ correlations = {'Rs': [{'principle': 'vasquez_beggs', 'variation': 'original'},
                 }
 
 
-
-
-
-# Calculate RS
-pvt_df, pvt_metrics = pvtc.compute_PVT_table(source=source_plots)
-
-# plots
-for index, row in pvt_df.iterrows():
-    df = row.to_frame().T
-    df = df.explode(['actual', 'calculated']).reset_index(drop=True)
-    df_hgor = pvtc.pvt_table[pvtc.pvt_table['source'] == source_plots]
-    df['HGOR'] = df_hgor['HGOR']
-
-    plot_log_log(df, measured='actual',
-                 calculated=['calculated'],
-                 metrics_df=pvt_metrics.loc[index].to_frame().T,
-                 title=index, property=index)
