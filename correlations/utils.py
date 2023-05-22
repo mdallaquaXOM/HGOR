@@ -3,10 +3,14 @@ import numpy as np
 import plotly.graph_objects as go
 import plotly.express as px
 
+import matplotlib.pyplot as plt
+
 import seaborn as sns
 import plotly.subplots as plotly_sp
 import plotly.figure_factory as ff
 from pyDOE2 import lhs
+import pandas as pd
+from scipy import stats
 
 
 def EDA_plotly(df):
@@ -138,7 +142,8 @@ def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property
                                  align='left'),
                      cells=dict(values=metrics_df.transpose().values.tolist(),
                                 # fill_color='lavender',
-                                align='left')
+                                align='left'),
+                     columnwidth=[400, 80, 80, 80],
                      ), row=3, col=1
         )
         # fig.add_trace(ff.create_table(metrics_df, index=True), row=2, col=1)
@@ -155,8 +160,8 @@ def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property
         title=dict(text=title, font=dict(size=50), automargin=True)
     )
 
-    fig.show()
     fig.write_html(fr"figures/{property}.html")
+    fig.show()
 
 
 def plot_pairplots(df, hue='', origin='xom'):
@@ -187,16 +192,79 @@ def metrics(measured, calculated):
     return metrics_
 
 
-def sampling(sampling_type='lhs', n=2, n_samples=100, criterion=None,
-             random_state=123, iterations=None, bounds=None):
-    if sampling_type == 'lhs':
-        X = lhs(n, samples=n_samples, random_state=random_state)
+def sampling(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
+             random_state=123, n_psat=50, bounds=None):
+    keys = list(bounds.keys()) + ['sample']
 
-        for i in range(n):
+    p_bounds = bounds['p_sat']
+
+    bounds = np.vstack((bounds['API'], bounds['gamma_s'], bounds['temperature'])).T
+
+    if sampling_type == 'lhs':
+        X = lhs(nVariables, samples=n_samples, random_state=random_state)
+
+        for i in range(nVariables):
             min_val = bounds[0, i]
             max_val = bounds[1, i]
             X[:, i] = X[:, i] * (max_val - min_val) + min_val
+
     else:
         raise Exception(f'Sampling method {sampling_type} ot defined')
 
-    return X
+    # include pressure
+    psat = np.linspace(start=p_bounds[0], stop=p_bounds[1], num=n_psat)
+    sampleNumber = np.reshape(np.arange(n_samples, dtype=int), (-1, 1))
+
+    # combinatorial
+    # todo: improve Code Quality
+    Y = []
+    for i in range(n_psat):
+        psat_i = np.full((n_samples, 1), psat[i])
+        Y.append(np.hstack((psat_i, X, sampleNumber)))
+
+    df = pd.DataFrame(np.concatenate(Y), columns=keys)
+    df = df.sort_values(by='sample').reset_index(drop=True)
+
+    df['sample'] = df['sample'].astype(int)
+    return df
+
+
+def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=None):
+    palette = None
+    nplots = len(correlations_df.columns)
+
+    fig, axes = plt.subplots(nrows=nplots, ncols=2, figsize=(10, 12))
+
+    for j, axes_type in enumerate(['linear', 'log']):
+        for i, correlation_name in enumerate(correlations_df):
+            data = input_df[['p_sat', 'sample']]
+            data[correlation_name] = correlations_df[correlation_name]
+            if (j == 1) and (i == nplots - 2):
+                showlegend = True
+            else:
+                showlegend = False
+
+            if hueplot is not None:
+                palette = sns.color_palette()
+
+            g = sns.lineplot(data=data,
+                             x="p_sat",
+                             y=correlation_name,
+                             hue=hueplot,
+                             palette=palette,
+                             ax=axes[i, j],
+                             legend=showlegend
+                             )
+
+            axes[i, j].set_title(correlation_name)
+            axes[i, j].set_ylabel('')
+
+            if (j == 1) and (correlation_name == jumpLog):
+                axes[i, j].set_xlim(0, 5000)
+            else:
+                axes[i, j].set_yscale(axes_type)
+                axes[i, j].set_xscale(axes_type)
+    fig.suptitle(name)
+    plt.tight_layout()
+    fig.savefig(fr'figures\synthetic_{name}_hue_{hueplot}')
+    plt.show()

@@ -36,4 +36,5 @@ plot_log_log(pvt_prop['muob'], measured='measured',
              calculated=colums2plot,
              metrics_df=pvt_metrics['muob'],
              title='muob (cp) at saturation pressure',
+             property='muob',
              log_axis=False)

@@ -8,19 +8,22 @@ import pickle
 
 
 class PVTCORR_HGOR(PVTCORR):
-    def __init__(self, path, files, columns=None, hgor=2000, dataAugmentation=None, **kwargs):
+    def __init__(self, path='', files='', data=None, columns=None, hgor=2000, dataAugmentation=None, **kwargs):
 
         super().__init__(**kwargs)
 
-        pvt_tables = []
-        for file in files:
-            filepath = os.path.join(path, file + '.xlsx')
+        if data is None:
+            pvt_tables = []
+            for file in files:
+                filepath = os.path.join(path, file + '.xlsx')
 
-            pvt_table_i = pd.read_excel(filepath, header=1, usecols=columns)
-            pvt_table_i['source'] = file
-            pvt_tables.append(pvt_table_i)
+                pvt_table_i = pd.read_excel(filepath, header=1, usecols=columns)
+                pvt_table_i['source'] = file
+                pvt_tables.append(pvt_table_i)
 
-        pvt_table = pd.concat(pvt_tables)
+            pvt_table = pd.concat(pvt_tables)
+        else:
+            pvt_table = data
 
         # Calculate corrected gas gravity (?)
         if 'gamma_c' not in pvt_table.columns:
@@ -31,13 +34,14 @@ class PVTCORR_HGOR(PVTCORR):
             pvt_table['gamma_c'] = gamma_gs
 
         # Assign flag for HGOR
-        pvt_table['HGOR'] = False
-        pvt_table.loc[pvt_table['Rs'] > hgor, 'HGOR'] = True
+        if 'Rs' in pvt_table:
+            pvt_table['HGOR'] = False
+            pvt_table.loc[pvt_table['Rs'] > hgor, 'HGOR'] = True
 
-        if dataAugmentation is not None:
-            hgor = pvt_table[pvt_table['HGOR'] == True]
-            for i in range(dataAugmentation):
-                pvt_table = pd.concat([pvt_table, hgor])
+            if dataAugmentation is not None:
+                hgor = pvt_table[pvt_table['HGOR'] == True]
+                for i in range(dataAugmentation):
+                    pvt_table = pd.concat([pvt_table, hgor])
 
         self.pvt_table = pvt_table
 
@@ -426,89 +430,6 @@ class PVTCORR_HGOR(PVTCORR):
 
         return comparison_df, metrics_df
 
-    def construct_PVT_table(self, source=None, methods=None):
-        df = self.pvt_table
-
-        # filter by source
-        if source is not None:
-            mask = df['source'] == source
-            df = df[mask]
-
-        # recover inputs
-        api = df['API']
-        gas_gravity_s = df['gamma_s']
-        gas_gravity = df['gamma_c']
-        temperature = df['temperature']
-        p_sat = np.array(df['p_sat'])
-
-        # recover outputs
-        rgo = np.array(df['Rs'])
-        bo = np.array(df['Bo_psat'])
-        bg = np.array(df['Bg_psat'])
-        Visc_o = np.array(df['visc_o_psat'])
-
-        # optimized parameter
-        new_parameter = pickle.load(open(r"optimizedParam/opt_results.pickle", "rb"))
-
-        # Gor at saturation pressure - Rs
-        rgo_c = self._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
-                                          method={'principle': 'exponential_rational_8',
-                                                  'variation': 'optimize'},
-                                          parameters=new_parameter['exponential_rational_8'])
-
-        # old correlations
-        bo_c = self._computeBoAtSatPres(api, temperature, p_sat, gas_gravity, rgo_c)
-
-        bo_c_old = []
-        bg_c = []
-        bw_c = []
-        Visc_o_c = []
-        Visc_g_c = []
-        Visc_w_c = []
-
-        # Old Correlations Below
-        for p_sat_i, temperature_i, gas_gravity_i, api_i \
-                in zip(p_sat, temperature, gas_gravity_s, api):
-            self.sat_pressure = p_sat_i
-
-            bo_c_old.append(super()._computeLiveOilFVF(api_i, temperature_i, p_sat_i, gas_gravity_i))
-            bg_c.append(self.computeDryGasFVF(p_sat_i, temperature_i, gas_gravity_i))
-            bw_c.append(self.computeWaterFVF(temperature_i, p_sat_i))
-            Visc_o_c.append(self.computeLiveOilViscosity(api_i, temperature_i, p_sat_i, gas_gravity_i))
-            Visc_g_c.append(self.computeDryGasViscosity(temperature_i, p_sat_i, gas_gravity_i))
-            Visc_w_c.append(self.computerWaterViscosity(p_sat_i, temperature_i))
-
-        bo_c_old = np.asarray(bo_c_old, dtype=np.float64)
-        bg_c = np.asarray(bg_c, dtype=np.float64)
-        bw_c = np.asarray(bw_c, dtype=np.float64)
-        Visc_o_c = np.asarray(Visc_o_c, dtype=np.float64)
-        Visc_g_c = np.asarray(Visc_g_c, dtype=np.float64)
-        Visc_w_c = np.asarray(Visc_w_c, dtype=np.float64)
-
-        comparison_dict = {'Rgo': {'actual': rgo, 'calculated': rgo_c},
-                           'Bo': {'actual': bo, 'calculated': bo_c},
-                           'Bg': {'actual': bg, 'calculated': bg_c},
-                           'Visc_o': {'actual': Visc_o, 'calculated': Visc_o_c},
-                           'bw': {'actual': None, 'calculated': bw_c},
-                           'Visc_g': {'actual': None, 'calculated': Visc_g_c},
-                           'Visc_w': {'actual': None, 'calculated': Visc_w_c},
-                           }
-
-        metrics_ = {'Rgo': metrics(rgo, rgo_c),
-                    'Bo': metrics(bo, bo_c),
-                    'Bg': metrics(bg, bg_c),
-                    'Visc_o': metrics(Visc_o, Visc_o_c),
-                    }
-
-        # treat outputs
-        comparison_df = pd.DataFrame.from_dict(comparison_dict, orient='index')
-        # comparison_df['HGOR'] = df['HGOR']
-
-        metrics_df = pd.DataFrame.from_dict(metrics_, orient='index')
-        metrics_df = metrics_df.round(2)
-
-        return comparison_df, metrics_df
-
     def compute_PVT_Correlations(self, properties, rs_best_correlation=None,
                                  new_parameters=None, source=None):
 
@@ -594,3 +515,197 @@ class PVTCORR_HGOR(PVTCORR):
             metrics_star[property_] = metrics_df
 
         return comparison_star, metrics_star
+
+    def compute_PVT_Correlations_v2(self, properties, rs_best_correlation=None,
+                                    new_parameters=None, source=None):
+
+        df = self.pvt_table
+
+        # filter by source
+        if source is not None:
+            mask = df['source'] == source
+            df = df[mask].reset_index(drop=True)
+
+        # recover inputs
+        api = df['API']
+        gas_gravity = df['gamma_c']
+        temperature = df['temperature']
+        p_sat = np.array(df['p_sat'])
+
+        # New correlations
+        comparison_star = {}
+
+        new_parameter = None
+        newparameter_prop_correl = None
+
+        for property_, correlations in properties.items():
+            # get the new parameters for the property in question
+            if new_parameters is not None:
+                if property_ in new_parameters:
+                    new_parameter = new_parameters[property_]
+
+            prop_values = {'method': [], 'values': []}
+
+            for correlation in correlations:
+                if new_parameter is not None:
+                    newparameter_prop_correl = new_parameter[correlation['principle']]
+
+                # function to call will depend on the property_
+                if property_ == 'Rs':
+                    temp = self._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
+                                                     method=correlation,
+                                                     parameters=newparameter_prop_correl)
+                elif property_ == 'Bo':
+                    temp = self._computeBoAtSatPres(api, temperature, p_sat, gas_gravity,
+                                                    method=correlation,
+                                                    rs_best_correlation=rs_best_correlation)
+
+                elif property_ == 'muob':
+                    temp = self._computeMuobAtSatPres(api, temperature, p_sat, gas_gravity,
+                                                      method=correlation,
+                                                      rs_best_correlation=rs_best_correlation)
+                else:
+                    raise Exception(f'Property unknown {property_}')
+
+                method = correlation['principle'] + '_' + correlation['variation']
+                prop_values['method'].append(method)
+                prop_values['values'].append(temp)
+
+            # convert things to dataframe
+            comparison_df = pd.DataFrame(prop_values['values'], index=prop_values['method']).T
+
+            # # add HGOR flag
+            # comparison_df['HGOR'] = df['HGOR']
+
+            comparison_star[property_] = comparison_df
+
+        return comparison_star
+
+    def construct_PVT_table(self, properties, rs_best_correlation=None,
+                        new_parameters=None, source=None):
+
+        df = self.pvt_table
+
+        # filter by source
+        if source is not None:
+            mask = df['source'] == source
+            df = df[mask].reset_index(drop=True)
+
+        # recover inputs
+        api = df['API']
+        gas_gravity_s = df['gamma_s']
+        gas_gravity = df['gamma_c']
+        temperature = df['temperature']
+        p_sat = np.array(df['p_sat'])
+
+        # Pvt properties
+        rgo_c = self._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
+                                          method=properties['Rs'])
+
+        bo_c = self._computeBoAtSatPres(api, temperature, p_sat, gas_gravity,
+                                        method=properties['Bo'],
+                                        rs=rgo_c)
+
+        Visc_o_c = self._computeMuobAtSatPres(api, temperature, p_sat, gas_gravity,
+                                              method=properties['muob'],
+                                              Rso=rgo_c)
+
+        # Old Correlations Below
+        # rgo_c = []
+        # bo_c = []
+        bg_c = []
+        bw_c = []
+        # Visc_o_c = []
+        Visc_g_c = []
+        Visc_w_c = []
+
+        for p_sat_i, temperature_i, gas_gravity_i, api_i \
+                in zip(p_sat, temperature, gas_gravity_s, api):
+            self.sat_pressure = p_sat_i
+
+            # rgo_c.append(super()._computeSolutionGasOilRatio(api_i, temperature_i, p_sat_i, gas_gravity_i))
+            # bo_c.append(super()._computeLiveOilFVF(api_i, temperature_i, p_sat_i, gas_gravity_i))
+            bg_c.append(super().computeDryGasFVF(p_sat_i, temperature_i, gas_gravity_i))
+            bw_c.append(super().computeWaterFVF(temperature_i, p_sat_i))
+            # Visc_o_c.append(super().computeLiveOilViscosity(api_i, temperature_i, p_sat_i, gas_gravity_i))
+            Visc_g_c.append(super().computeDryGasViscosity(temperature_i, p_sat_i, gas_gravity_i))
+            Visc_w_c.append(super().computerWaterViscosity(p_sat_i, temperature_i))
+
+        pvt_dic = {
+            'Rgo': rgo_c,
+            'Bo': bo_c,
+            'Bg': bg_c,
+            'Bw': bw_c,
+            'Visc_o': Visc_o_c,
+            'Visc_g': Visc_g_c,
+            'Visc_w': Visc_w_c,
+        }
+
+        # treat outputs
+        pvt_df = pd.DataFrame.from_dict(pvt_dic)
+
+        return pvt_df
+
+    def construct_PVT_table_old(self, source=None):
+        df = self.pvt_table
+
+        # filter by source
+        if source is not None:
+            mask = df['source'] == source
+            df = df[mask]
+
+        # recover inputs
+        api = df['API']
+        gas_gravity_s = df['gamma_s']
+        temperature = df['temperature']
+        p_sat = np.array(df['p_sat'])
+
+        # recover outputs
+        # rgo = np.array(df['Rs'])
+        # bo = np.array(df['Bo_psat'])
+        # bg = np.array(df['Bg_psat'])
+        # Visc_o = np.array(df['visc_o_psat'])
+
+        rgo_c = []
+        bo_c = []
+        bg_c = []
+        bw_c = []
+        Visc_o_c = []
+        Visc_g_c = []
+        Visc_w_c = []
+
+        # Old Correlations Below
+        for p_sat_i, temperature_i, gas_gravity_i, api_i \
+                in zip(p_sat, temperature, gas_gravity_s, api):
+            self.sat_pressure = p_sat_i
+
+            rgo_c.append(super()._computeSolutionGasOilRatio(api_i, temperature_i, p_sat_i, gas_gravity_i))
+            bo_c.append(super()._computeLiveOilFVF(api_i, temperature_i, p_sat_i, gas_gravity_i))
+            bg_c.append(super().computeDryGasFVF(p_sat_i, temperature_i, gas_gravity_i))
+            bw_c.append(super().computeWaterFVF(temperature_i, p_sat_i))
+            Visc_o_c.append(super().computeLiveOilViscosity(api_i, temperature_i, p_sat_i, gas_gravity_i))
+            Visc_g_c.append(super().computeDryGasViscosity(temperature_i, p_sat_i, gas_gravity_i))
+            Visc_w_c.append(super().computerWaterViscosity(p_sat_i, temperature_i))
+
+        bo_c = np.asarray(bo_c, dtype=np.float64)
+        bg_c = np.asarray(bg_c, dtype=np.float64)
+        bw_c = np.asarray(bw_c, dtype=np.float64)
+        Visc_o_c = np.asarray(Visc_o_c, dtype=np.float64)
+        Visc_g_c = np.asarray(Visc_g_c, dtype=np.float64)
+        Visc_w_c = np.asarray(Visc_w_c, dtype=np.float64)
+
+        pvt_dic = {
+            'Rgo': rgo_c,
+            'Bo': bo_c,
+            'Bg': bg_c,
+            'Bw': bw_c,
+            'Visc_o': Visc_o_c,
+            'Visc_g': Visc_g_c,
+            'Visc_w': Visc_w_c,
+        }
+
+        # treat outputs
+        pvt_df = pd.DataFrame.from_dict(pvt_dic)
+        # comparison_df['HGOR'] = df['HGOR']
+
+        return pvt_df
