@@ -413,19 +413,19 @@ class PVTCORR_HGOR(PVTCORR):
                            'Exp_Rational_16_Ed': pb_exp_rat_16_ed
                            }
 
-        metrics_ = {'VB_original': metrics(p_sat, pb_vb_orig),
-                    'VB_paper': metrics(p_sat, pb_vb_paper),
-                    'Exp_Rational_8_paper': metrics(p_sat, pb_exp_rat_8_paper),
-                    'Exp_Rational_16_paper': metrics(p_sat, pb_exp_rat_16_paper),
-                    'Exp_Rational_16_Ed': metrics(p_sat, pb_exp_rat_16_ed),
-                    # 'Exp_Rational_16_optimized': metrics(rs, rs_exp_rat_16_opt)
-                    }
+        metrics_dict = {'VB_original': metrics(p_sat, pb_vb_orig),
+                        'VB_paper': metrics(p_sat, pb_vb_paper),
+                        'Exp_Rational_8_paper': metrics(p_sat, pb_exp_rat_8_paper),
+                        'Exp_Rational_16_paper': metrics(p_sat, pb_exp_rat_16_paper),
+                        'Exp_Rational_16_Ed': metrics(p_sat, pb_exp_rat_16_ed),
+                        # 'Exp_Rational_16_optimized': metrics(rs, rs_exp_rat_16_opt)
+                        }
 
         # treat outputs
         comparison_df = pd.DataFrame.from_dict(comparison_dict)
         comparison_df['HGOR'] = df['HGOR']
 
-        metrics_df = pd.DataFrame.from_dict(metrics_)
+        metrics_df = pd.DataFrame.from_dict(metrics_dict).T
         metrics_df = metrics_df.round(2)
 
         return comparison_df, metrics_df
@@ -582,7 +582,7 @@ class PVTCORR_HGOR(PVTCORR):
         return comparison_star
 
     def construct_PVT_table(self, properties, rs_best_correlation=None,
-                        new_parameters=None, source=None):
+                            new_parameters=None, source=None):
 
         df = self.pvt_table
 
