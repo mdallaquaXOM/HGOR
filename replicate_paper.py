@@ -29,13 +29,14 @@ print('Done!')
 # Calculate bubble point
 pb, pb_metrics = pvtc.compute_pb_values(source='PVT_Data')
 
-plot_log_log(pb, measured='pressure',
-             calculated=[
-                 'VB_original',
-                 'VB_paper',
-                 'Exp_Rational_8_paper',
-                 'Exp_Rational_16_paper',
-                 'Exp_Rational_16_Ed'
-             ],
-             metrics_df=pb_metrics,
-             title='Saturation Point [psia]')
+plot_properties(pb,
+                measured='pressure',
+                calculated=[
+                    'VB_original',
+                    'VB_paper',
+                    'Exp_Rational_8_paper',
+                    'Exp_Rational_16_paper',
+                    'Exp_Rational_16_Ed'
+                ],
+                metrics_df=pb_metrics,
+                title='Saturation Point [psia]')

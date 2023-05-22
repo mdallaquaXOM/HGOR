@@ -32,9 +32,9 @@ pvt_prop, pvt_metrics = pvtc.compute_PVT_Correlations(properties,
 
 colums2plot = pvt_prop['Bo'].drop(['measured', 'HGOR'], axis=1).columns.values
 
-plot_log_log(pvt_prop['Bo'], measured='measured',
-             calculated=colums2plot,
-             metrics_df=pvt_metrics['Bo'],
-             title='Bo (Rb/stb) at saturation pressure',
-             property='Bo',
-             log_axis=False)
+plot_properties(pvt_prop['Bo'], measured='measured',
+                calculated=colums2plot,
+                metrics_df=pvt_metrics['Bo'],
+                title='Bo (Rb/stb) at saturation pressure',
+                property='Bo',
+                log_axis=False)

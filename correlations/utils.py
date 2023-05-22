@@ -78,7 +78,7 @@ def EDA_seaborn(df):
     g.figure.savefig(rf'figures/pairplots_Rs.png')
 
 
-def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property='Rs', log_axis=True):
+def plot_properties(df, measured, calculated, title=None, metrics_df=None, property='Rs', log_axis=True):
     colorsList = ["red", "blue", "green", "purple", "orange", "black", 'cyan']
 
     fig = plotly_sp.make_subplots(
@@ -161,6 +161,56 @@ def plot_log_log(df, measured, calculated, title=None, metrics_df=None, property
     )
 
     fig.write_html(fr"figures/{property}.html")
+    fig.show()
+
+
+def plot_comparePVT(inputs, df_old, df_new, x_axis='p_sat'):
+    colorsList = ["red", "blue", "green", "purple", "orange", "black", 'cyan']
+
+    properties = list(df_old.columns)
+
+    fig = plotly_sp.make_subplots(
+        rows=2, cols=7,
+        shared_xaxes='rows', shared_yaxes='columns',
+        # vertical_spacing=0.03,
+        subplot_titles=properties + properties,
+    )
+
+    for i_scale, scale in enumerate(['linear', 'log'], 1):
+        if i_scale == 1:
+            showlegend = True
+        else:
+            showlegend = False
+
+        legendGroup_counter = 0
+        for i_prop, property_i in enumerate(properties, 1):
+            fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_new[property_i],
+                                     name='Old PVT',
+                                     marker={'color': "red", 'symbol': 'x'},
+                                     legendgroup=f'group{legendGroup_counter}', showlegend=showlegend),
+                          row=i_scale, col=i_prop
+                          )
+
+            fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_old[property_i],
+                                     name='New PVT',
+                                     marker={'color': "blue", 'symbol': 'circle'},
+                                     legendgroup=f'group{legendGroup_counter}', showlegend=showlegend),
+                          row=i_scale, col=i_prop
+                          )
+
+            legendGroup_counter += 1
+
+            fig.update_xaxes(type=scale, title_text=x_axis, row=i_scale, col=i_prop)
+            fig.update_yaxes(type=scale, row=i_scale, col=i_prop) #, title_text=property_i
+
+    # fig.update_xaxes(minor=dict(ticks="inside", showgrid=True))
+
+    fig.update_layout(
+        title=dict(text='Comparing correlations:  Linear at the top, Log at the bottom', font=dict(size=50),
+                   automargin=True)
+    )
+
+    fig.write_html(fr"figures/comparingPVTs.html")
     fig.show()
 
 

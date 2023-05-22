@@ -39,7 +39,7 @@ properties = {'Rs': [
 }
 
 pvt_df = pvtc.compute_PVT_Correlations_v2(properties, rs_best_correlation={'principle': 'exponential_rational_8',
-                                                                           'variation': 'optimized'})
+                                                                         'variation': 'optimized'})
 #
 # for property_, correlations in pvt_df.items():
 #     plot_synthetic_data(correlations, inputs, name=property_,

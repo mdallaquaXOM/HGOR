@@ -581,8 +581,8 @@ class PVTCORR_HGOR(PVTCORR):
 
         return comparison_star
 
-    def construct_PVT_table(self, properties, rs_best_correlation=None,
-                            new_parameters=None, source=None):
+    def construct_PVT_table_new(self, properties, rs_best_correlation=None,
+                                new_parameters=None, source=None):
 
         df = self.pvt_table
 
