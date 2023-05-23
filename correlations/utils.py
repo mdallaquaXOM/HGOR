@@ -184,14 +184,14 @@ def plot_comparePVT(inputs, df_old, df_new, x_axis='p_sat'):
 
         legendGroup_counter = 0
         for i_prop, property_i in enumerate(properties, 1):
-            fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_new[property_i],
+            fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_old[property_i],
                                      name='Old PVT',
                                      marker={'color': "red", 'symbol': 'x'},
                                      legendgroup=f'group{legendGroup_counter}', showlegend=showlegend),
                           row=i_scale, col=i_prop
                           )
 
-            fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_old[property_i],
+            fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_new[property_i],
                                      name='New PVT',
                                      marker={'color': "blue", 'symbol': 'circle'},
                                      legendgroup=f'group{legendGroup_counter}', showlegend=showlegend),

@@ -261,11 +261,11 @@ class PVTCORR:
                 Visc_o = self.computeLiveOilViscosity(X[0], X[2], p, X[1]) - vo
                 Visc_g = self.computeDryGasViscosity(X[2], p, X[1]) - vg
                 Visc_w = self.computerWaterViscosity(p, X[2]) - vw
-                obj+=(Bo/bo) ** 2 + (Bg/bg) ** 2 + (Bw/bw) ** 2 + (Rso/rgo) ** 2 + (Visc_o/vo)**2 + \
-                     (Visc_g/vg)**2 + (Visc_w/vw)**2
+                # obj+=(Bo/bo) ** 2 + (Bg/bg) ** 2 + (Bw/bw) ** 2 + (Rso/rgo) ** 2 + (Visc_o/vo)**2 + \
+                #      (Visc_g/vg)**2 + (Visc_w/vw)**2
                 # obj+=(Bo/bo) ** 2 + (Bg/bg) ** 2  + (Rso/rgo) ** 2 + \
                 #      (Visc_g/vg)**2 + (Visc_o/vo)**2
-                # obj+=(Bo/bo) ** 2 + (Rso/rgo) ** 2
+                obj+=(Bo/bo) ** 2 + (Rso/rgo) ** 2 + (Visc_o/vo)**2
                 # obj += (Rso / rgo) ** 2
 
         return obj
@@ -313,9 +313,10 @@ class PVTCORR:
         return comparison_dict
 
 if __name__ == '__main__':
-    sat_pressure = 5123.2
-    pvtc  = PVTCORR(sat_pressure=sat_pressure, Tsp=60, Psp=500, filepath=r'D:\uncon_workflow\SOD\PLU28BS_127H_PVT.csv')
-    ranges = [(50, 55), (0.85, 1), (130, 230)]
+    sat_pressure = 3500
+    pvtc  = PVTCORR(sat_pressure=sat_pressure, Tsp=60, Psp=14.7,
+                    filepath=r'C:\Users\mjdaqua\Python\Projects\HGOR\Code\outputs\pvt_new.csv')
+    ranges = [(38, 55), (0.65, 1), (130, 300)]
     api, gas_gravity, temperature = pvtc.match_PVT_values(ranges, additional_details=True)
     dct = pvtc.compute_PVT_values(api, gas_gravity, temperature)
     # dct = pvtc.compute_PVT_values(48.35,   0.817, 136.31)

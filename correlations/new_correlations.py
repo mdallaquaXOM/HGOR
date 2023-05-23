@@ -674,11 +674,11 @@ class PVTCORR_HGOR(PVTCORR):
         Visc_g_c = []
         Visc_w_c = []
 
+        self.sat_pressure = np.max(p_sat)
+
         # Old Correlations Below
         for p_sat_i, temperature_i, gas_gravity_i, api_i \
                 in zip(p_sat, temperature, gas_gravity_s, api):
-            self.sat_pressure = p_sat_i
-
             rgo_c.append(super()._computeSolutionGasOilRatio(api_i, temperature_i, p_sat_i, gas_gravity_i))
             bo_c.append(super()._computeLiveOilFVF(api_i, temperature_i, p_sat_i, gas_gravity_i))
             bg_c.append(super().computeDryGasFVF(p_sat_i, temperature_i, gas_gravity_i))
@@ -687,6 +687,7 @@ class PVTCORR_HGOR(PVTCORR):
             Visc_g_c.append(super().computeDryGasViscosity(temperature_i, p_sat_i, gas_gravity_i))
             Visc_w_c.append(super().computerWaterViscosity(p_sat_i, temperature_i))
 
+        rgo_c = np.asarray(rgo_c, dtype=np.float64)
         bo_c = np.asarray(bo_c, dtype=np.float64)
         bg_c = np.asarray(bg_c, dtype=np.float64)
         bw_c = np.asarray(bw_c, dtype=np.float64)
