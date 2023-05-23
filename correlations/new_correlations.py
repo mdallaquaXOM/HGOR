@@ -1,10 +1,11 @@
-from .utils import metrics
+from .utils import metrics, relativeErrorforMatch
 import numpy as np
 import os
 import pandas as pd
 from .LGOR_script import PVTCORR
 from .definitions import *
 import pickle
+from scipy.optimize import minimize, Bounds, differential_evolution
 
 
 class PVTCORR_HGOR(PVTCORR):
@@ -582,21 +583,30 @@ class PVTCORR_HGOR(PVTCORR):
         return comparison_star
 
     def construct_PVT_table_new(self, properties, rs_best_correlation=None,
-                                new_parameters=None, source=None):
+                                new_parameters=None, source=None, inputValues=None):
 
         df = self.pvt_table
 
-        # filter by source
         if source is not None:
             mask = df['source'] == source
             df = df[mask].reset_index(drop=True)
-
-        # recover inputs
-        api = df['API']
-        gas_gravity_s = df['gamma_s']
-        gas_gravity = df['gamma_c']
-        temperature = df['temperature']
         p_sat = np.array(df['p_sat'])
+
+        # filter by source
+        if inputValues is None:
+            # recover inputs
+            api = df['API']
+            gas_gravity_s = df['gamma_s']
+            gas_gravity = df['gamma_c']
+            temperature = df['temperature']
+        else:
+            shape = p_sat.shape
+
+            api = np.full(shape, inputValues[0])
+            gas_gravity_s = np.full(shape, inputValues[1])
+            temperature = np.full(shape, inputValues[2])
+
+            gas_gravity = self._computeGasGravityAtSeparatorConditions(gas_gravity_s, api)
 
         # Pvt properties
         rgo_c = self._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
@@ -710,3 +720,52 @@ class PVTCORR_HGOR(PVTCORR):
         # comparison_df['HGOR'] = df['HGOR']
 
         return pvt_df
+
+    def match_PVT_valuesHGOR(self, range_of_values, pvt_old, properties, additional_details=False):
+
+        # columnToMatch = ['Rgo', 'Bo', 'Visc_o']  # for all, set: NONE
+        columnToMatch = ['Rgo', 'Bo']  # for all, set: NONE
+        # columnToMatch = None  # for all, set: NONE
+
+        def _objFunction(X):
+            pvt_new = self.construct_PVT_table_new(properties, inputValues=X)
+
+            obj_value = relativeErrorforMatch(pvt_old, pvt_new, columns=columnToMatch)
+
+            return obj_value
+
+        res = differential_evolution(_objFunction, range_of_values, seed=100, strategy='best2exp')
+        if additional_details:
+            print(res)
+        return res.x
+
+    def _objFunction2(self, X):
+        p_array = np.array(self.pvt_table['p'])
+        bo_array = np.array(self.pvt_table['Bo'])
+        bg_array = np.array(self.pvt_table['Bg'])
+        bw_array = np.array(self.pvt_table['Bw'])
+        rgo_array = np.array(self.pvt_table['Rgo'])
+        Visc_oil_array = np.array(self.pvt_table['visc_o'])
+        Visc_gas_array = np.array(self.pvt_table['visc_g'])
+        Visc_water_array = np.array(self.pvt_table['visc_w'])
+
+        obj = 0.
+        for p, bo, bg, bw, rgo, vo, vg, vw in zip(p_array, bo_array, bg_array,
+                                                  bw_array, rgo_array, Visc_oil_array,
+                                                  Visc_gas_array, Visc_water_array):
+            Rso = self._computeSolutionGasOilRatio(X[0], X[2], p, X[1]) - rgo
+            Bo = self._computeLiveOilFVF(X[0], X[2], p, X[1]) - bo
+            Bg = self.computeDryGasFVF(p, X[2], X[1]) - bg
+            Bw = self.computeWaterFVF(X[2], p) - bw
+            Visc_o = self.computeLiveOilViscosity(X[0], X[2], p, X[1]) - vo
+            Visc_g = self.computeDryGasViscosity(X[2], p, X[1]) - vg
+            Visc_w = self.computerWaterViscosity(p, X[2]) - vw
+
+            obj += (Bo / bo) ** 2 + (Bg / bg) ** 2 + (Bw / bw) ** 2 + (Rso / rgo) ** 2 + (Visc_o / vo) ** 2 + \
+                   (Visc_g / vg) ** 2 + (Visc_w / vw) ** 2
+            # obj+=(Bo/bo) ** 2 + (Bg/bg) ** 2  + (Rso/rgo) ** 2 + \
+            #      (Visc_g/vg)**2 + (Visc_o/vo)**2
+            # obj+=(Bo/bo) ** 2 + (Rso/rgo) ** 2
+            # obj += (Rso / rgo) ** 2
+
+        return obj

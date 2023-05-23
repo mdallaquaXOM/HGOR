@@ -39,4 +39,5 @@ plot_properties(pb,
                     'Exp_Rational_16_Ed'
                 ],
                 metrics_df=pb_metrics,
-                title='Saturation Point [psia]')
+                title='Saturation Point [psia]',
+                property='p_sat')

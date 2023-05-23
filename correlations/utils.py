@@ -164,8 +164,13 @@ def plot_properties(df, measured, calculated, title=None, metrics_df=None, prope
     fig.show()
 
 
-def plot_comparePVT(inputs, df_old, df_new, x_axis='p_sat'):
-    colorsList = ["red", "blue", "green", "purple", "orange", "black", 'cyan']
+def plot_comparePVT(inputs, df_old, df_new, x_axis='p_sat', title=''):
+    # todo: rename cinput columns
+    inputs = inputs.rename({'Rs': 'Rgo',
+                            'Bo_psat': 'Bo',
+                            'Bg_psat': 'Bg',
+                            'visc_o_psat': 'Visc_o',
+                            }, axis='columns')
 
     properties = list(df_old.columns)
 
@@ -176,41 +181,46 @@ def plot_comparePVT(inputs, df_old, df_new, x_axis='p_sat'):
         subplot_titles=properties + properties,
     )
 
-    for i_scale, scale in enumerate(['linear', 'log'], 1):
-        if i_scale == 1:
-            showlegend = True
-        else:
-            showlegend = False
+    showlegend = True
 
-        legendGroup_counter = 0
+    for i_scale, scale in enumerate(['linear', 'log'], 1):
         for i_prop, property_i in enumerate(properties, 1):
+            if property_i in inputs:
+                fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=inputs[property_i],
+                                         name='Lab Value',
+                                         marker={'color': "black", 'symbol': 'circle-open'},
+                                         legendgroup='group1', showlegend=showlegend),
+                              row=i_scale, col=i_prop
+                              )
+
             fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_old[property_i],
                                      name='Old PVT',
-                                     marker={'color': "red", 'symbol': 'x'},
-                                     legendgroup=f'group{legendGroup_counter}', showlegend=showlegend),
+                                     marker={'color': "red", 'symbol': 'square'},
+                                     legendgroup='group2', showlegend=showlegend),
                           row=i_scale, col=i_prop
                           )
 
             fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_new[property_i],
                                      name='New PVT',
-                                     marker={'color': "blue", 'symbol': 'circle'},
-                                     legendgroup=f'group{legendGroup_counter}', showlegend=showlegend),
+                                     marker={'color': "blue", 'symbol': 'x'},
+                                     legendgroup='group3', showlegend=showlegend),
                           row=i_scale, col=i_prop
                           )
 
-            legendGroup_counter += 1
-
             fig.update_xaxes(type=scale, title_text=x_axis, row=i_scale, col=i_prop)
-            fig.update_yaxes(type=scale, row=i_scale, col=i_prop) #, title_text=property_i
+            fig.update_yaxes(type=scale, row=i_scale, col=i_prop)  # , title_text=property_i
+
+            if showlegend:
+                showlegend = False
 
     # fig.update_xaxes(minor=dict(ticks="inside", showgrid=True))
 
     fig.update_layout(
-        title=dict(text='Comparing correlations:  Linear at the top, Log at the bottom', font=dict(size=50),
+        title=dict(text=f'{title}:  Linear at the top | Log at the bottom', font=dict(size=50),
                    automargin=True)
     )
 
-    fig.write_html(fr"figures/comparingPVTs.html")
+    fig.write_html(fr"figures/comparingPVTs_{title}.html")
     fig.show()
 
 
@@ -244,7 +254,8 @@ def metrics(measured, calculated):
 
 def sampling(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
              random_state=123, n_psat=50, bounds=None):
-    keys = list(bounds.keys()) + ['sample']
+    keys = list(bounds.keys())
+    keys_expanded = keys + ['sample']
 
     p_bounds = bounds['p_sat']
 
@@ -257,6 +268,10 @@ def sampling(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
             min_val = bounds[0, i]
             max_val = bounds[1, i]
             X[:, i] = X[:, i] * (max_val - min_val) + min_val
+
+        keys.remove('p_sat')
+        dfX = pd.DataFrame(X, columns=keys)
+        print(f'Sampled values for Synthetic case: \n{dfX}')
 
     else:
         raise Exception(f'Sampling method {sampling_type} ot defined')
@@ -272,7 +287,7 @@ def sampling(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
         psat_i = np.full((n_samples, 1), psat[i])
         Y.append(np.hstack((psat_i, X, sampleNumber)))
 
-    df = pd.DataFrame(np.concatenate(Y), columns=keys)
+    df = pd.DataFrame(np.concatenate(Y), columns=keys_expanded)
     df = df.sort_values(by='sample').reset_index(drop=True)
 
     df['sample'] = df['sample'].astype(int)
@@ -318,3 +333,28 @@ def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=
     plt.tight_layout()
     fig.savefig(fr'figures\synthetic_{name}_hue_{hueplot}')
     plt.show()
+
+
+def relativeErrorforMatch(dfold, dfnew, columns=None):
+    if columns is None:
+        columns = dfold.columns
+
+    old_values = dfold[columns].to_numpy()
+    new_values = dfnew[columns].to_numpy()
+
+    error = ((new_values - old_values) / old_values) ** 2
+    error_prop = np.sum(error, axis=0)
+    error_obj = np.sum(error_prop)
+
+    return error_obj
+
+
+def printInputValues(old, new):
+    columns = ['API', 'Specific_gravity', 'Temperature']
+    rows = ['Original_Values', 'Calculated_Values']
+
+    old_ = old[['API', 'gamma_s', 'temperature']].iloc[0].values
+
+    df = pd.DataFrame(np.vstack((old_, new)), columns=columns, index=rows)
+
+    print(f'Result from the match:\n{df}')
