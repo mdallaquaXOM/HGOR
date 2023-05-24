@@ -9,7 +9,9 @@ from scipy.optimize import minimize, Bounds, differential_evolution
 
 
 class PVTCORR_HGOR(PVTCORR):
-    def __init__(self, path='', files='', data=None, columns=None, hgor=2000, dataAugmentation=None, **kwargs):
+    def __init__(self, path='', files='', data=None, columns=None, hgor=2000, dataAugmentation=None, header=1,
+                 inputData=True, skiprows=None,
+                 **kwargs):
 
         super().__init__(**kwargs)
 
@@ -18,7 +20,7 @@ class PVTCORR_HGOR(PVTCORR):
             for file in files:
                 filepath = os.path.join(path, file + '.xlsx')
 
-                pvt_table_i = pd.read_excel(filepath, header=1, usecols=columns)
+                pvt_table_i = pd.read_excel(filepath, header=header, usecols=columns, skiprows=skiprows)
                 pvt_table_i['source'] = file
                 pvt_tables.append(pvt_table_i)
 
@@ -27,22 +29,23 @@ class PVTCORR_HGOR(PVTCORR):
             pvt_table = data
 
         # Calculate corrected gas gravity (?)
-        if 'gamma_c' not in pvt_table.columns:
-            api = pvt_table['API']
-            gas_gravity = pvt_table['gamma_s']
+        if inputData:
+            if 'gamma_c' not in pvt_table.columns:
+                api = pvt_table['API']
+                gas_gravity = pvt_table['gamma_s']
 
-            gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, api)
-            pvt_table['gamma_c'] = gamma_gs
+                gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, api)
+                pvt_table['gamma_c'] = gamma_gs
 
-        # Assign flag for HGOR
-        if 'Rs' in pvt_table:
-            pvt_table['HGOR'] = False
-            pvt_table.loc[pvt_table['Rs'] > hgor, 'HGOR'] = True
+            # Assign flag for HGOR
+            if 'Rgo' in pvt_table:
+                pvt_table['HGOR'] = False
+                pvt_table.loc[pvt_table['Rgo'] > hgor, 'HGOR'] = True
 
-            if dataAugmentation is not None:
-                hgor = pvt_table[pvt_table['HGOR'] == True]
-                for i in range(dataAugmentation):
-                    pvt_table = pd.concat([pvt_table, hgor])
+                if dataAugmentation is not None:
+                    hgor = pvt_table[pvt_table['HGOR'] == True]
+                    for i in range(dataAugmentation):
+                        pvt_table = pd.concat([pvt_table, hgor])
 
         self.pvt_table = pvt_table
 
@@ -381,8 +384,8 @@ class PVTCORR_HGOR(PVTCORR):
         api = df['API']
         gas_gravity = df['gamma_c']
         temperature = df['temperature']
-        p_sat = np.array(df['p_sat'])
-        rs = np.array(df['Rs'])
+        p_sat = np.array(df['p'])
+        rs = np.array(df['Rgo'])
 
         # New correlations
         pb_vb_orig = self._compute_bubblePressure(api, temperature, rs, gas_gravity,
@@ -445,10 +448,10 @@ class PVTCORR_HGOR(PVTCORR):
         api = df['API']
         gas_gravity = df['gamma_c']
         temperature = df['temperature']
-        p_sat = np.array(df['p_sat'])
-        rs = np.array(df['Rs'])
-        Bo_psat = np.array(df['Bo_psat'])
-        visc_o_psat = np.array(df['visc_o_psat'])
+        p_sat = np.array(df['p'])
+        rgo = np.array(df['Rgo'])
+        Bo = np.array(df['Bo'])
+        visc_o = np.array(df['visc_o'])
 
         # New correlations
         comparison_star = {}
@@ -465,11 +468,11 @@ class PVTCORR_HGOR(PVTCORR):
 
             # get measured value
             if property_ == 'Rs':
-                value_measured = rs
+                value_measured = rgo
             elif property_ == 'Bo':
-                value_measured = Bo_psat
+                value_measured = Bo
             elif property_ == 'muob':
-                value_measured = visc_o_psat
+                value_measured = visc_o
             else:
                 raise Exception(f'Not able to get the measured values')
 
@@ -531,7 +534,7 @@ class PVTCORR_HGOR(PVTCORR):
         api = df['API']
         gas_gravity = df['gamma_c']
         temperature = df['temperature']
-        p_sat = np.array(df['p_sat'])
+        p_sat = np.array(df['p'])
 
         # New correlations
         comparison_star = {}
@@ -590,7 +593,7 @@ class PVTCORR_HGOR(PVTCORR):
         if source is not None:
             mask = df['source'] == source
             df = df[mask].reset_index(drop=True)
-        p_sat = np.array(df['p_sat'])
+        p_sat = np.array(df['p'])
 
         # filter by source
         if inputValues is None:
@@ -646,9 +649,9 @@ class PVTCORR_HGOR(PVTCORR):
             'Bo': bo_c,
             'Bg': bg_c,
             'Bw': bw_c,
-            'Visc_o': Visc_o_c,
-            'Visc_g': Visc_g_c,
-            'Visc_w': Visc_w_c,
+            'visc_o': Visc_o_c,
+            'visc_g': Visc_g_c,
+            'visc_w': Visc_w_c,
         }
 
         # treat outputs
@@ -668,10 +671,10 @@ class PVTCORR_HGOR(PVTCORR):
         api = df['API']
         gas_gravity_s = df['gamma_s']
         temperature = df['temperature']
-        p_sat = np.array(df['p_sat'])
+        p_sat = np.array(df['p'])
 
         # recover outputs
-        # rgo = np.array(df['Rs'])
+        # rgo = np.array(df['Rgo'])
         # bo = np.array(df['Bo_psat'])
         # bg = np.array(df['Bg_psat'])
         # Visc_o = np.array(df['visc_o_psat'])
@@ -710,9 +713,9 @@ class PVTCORR_HGOR(PVTCORR):
             'Bo': bo_c,
             'Bg': bg_c,
             'Bw': bw_c,
-            'Visc_o': Visc_o_c,
-            'Visc_g': Visc_g_c,
-            'Visc_w': Visc_w_c,
+            'visc_o': Visc_o_c,
+            'visc_g': Visc_g_c,
+            'visc_w': Visc_w_c,
         }
 
         # treat outputs
@@ -723,7 +726,7 @@ class PVTCORR_HGOR(PVTCORR):
 
     def match_PVT_valuesHGOR(self, range_of_values, pvt_old, properties, additional_details=False):
 
-        # columnToMatch = ['Rgo', 'Bo', 'Visc_o']  # for all, set: NONE
+        # columnToMatch = ['Rgo', 'Bo', 'visc_o']  # for all, set: NONE
         columnToMatch = ['Rgo', 'Bo']  # for all, set: NONE
         # columnToMatch = None  # for all, set: NONE
 
@@ -739,33 +742,33 @@ class PVTCORR_HGOR(PVTCORR):
             print(res)
         return res.x
 
-    def _objFunction2(self, X):
-        p_array = np.array(self.pvt_table['p'])
-        bo_array = np.array(self.pvt_table['Bo'])
-        bg_array = np.array(self.pvt_table['Bg'])
-        bw_array = np.array(self.pvt_table['Bw'])
-        rgo_array = np.array(self.pvt_table['Rgo'])
-        Visc_oil_array = np.array(self.pvt_table['visc_o'])
-        Visc_gas_array = np.array(self.pvt_table['visc_g'])
-        Visc_water_array = np.array(self.pvt_table['visc_w'])
-
-        obj = 0.
-        for p, bo, bg, bw, rgo, vo, vg, vw in zip(p_array, bo_array, bg_array,
-                                                  bw_array, rgo_array, Visc_oil_array,
-                                                  Visc_gas_array, Visc_water_array):
-            Rso = self._computeSolutionGasOilRatio(X[0], X[2], p, X[1]) - rgo
-            Bo = self._computeLiveOilFVF(X[0], X[2], p, X[1]) - bo
-            Bg = self.computeDryGasFVF(p, X[2], X[1]) - bg
-            Bw = self.computeWaterFVF(X[2], p) - bw
-            Visc_o = self.computeLiveOilViscosity(X[0], X[2], p, X[1]) - vo
-            Visc_g = self.computeDryGasViscosity(X[2], p, X[1]) - vg
-            Visc_w = self.computerWaterViscosity(p, X[2]) - vw
-
-            obj += (Bo / bo) ** 2 + (Bg / bg) ** 2 + (Bw / bw) ** 2 + (Rso / rgo) ** 2 + (Visc_o / vo) ** 2 + \
-                   (Visc_g / vg) ** 2 + (Visc_w / vw) ** 2
-            # obj+=(Bo/bo) ** 2 + (Bg/bg) ** 2  + (Rso/rgo) ** 2 + \
-            #      (Visc_g/vg)**2 + (Visc_o/vo)**2
-            # obj+=(Bo/bo) ** 2 + (Rso/rgo) ** 2
-            # obj += (Rso / rgo) ** 2
-
-        return obj
+    # def _objFunction2(self, X):
+    #     p_array = np.array(self.pvt_table['p'])
+    #     bo_array = np.array(self.pvt_table['Bo'])
+    #     bg_array = np.array(self.pvt_table['Bg'])
+    #     bw_array = np.array(self.pvt_table['Bw'])
+    #     rgo_array = np.array(self.pvt_table['Rgo'])
+    #     Visc_oil_array = np.array(self.pvt_table['visc_o'])
+    #     Visc_gas_array = np.array(self.pvt_table['visc_g'])
+    #     Visc_water_array = np.array(self.pvt_table['visc_w'])
+    #
+    #     obj = 0.
+    #     for p, bo, bg, bw, rgo, vo, vg, vw in zip(p_array, bo_array, bg_array,
+    #                                               bw_array, rgo_array, Visc_oil_array,
+    #                                               Visc_gas_array, Visc_water_array):
+    #         Rso = self._computeSolutionGasOilRatio(X[0], X[2], p, X[1]) - rgo
+    #         Bo = self._computeLiveOilFVF(X[0], X[2], p, X[1]) - bo
+    #         Bg = self.computeDryGasFVF(p, X[2], X[1]) - bg
+    #         Bw = self.computeWaterFVF(X[2], p) - bw
+    #         Visc_o = self.computeLiveOilViscosity(X[0], X[2], p, X[1]) - vo
+    #         Visc_g = self.computeDryGasViscosity(X[2], p, X[1]) - vg
+    #         Visc_w = self.computerWaterViscosity(p, X[2]) - vw
+    #
+    #         obj += (Bo / bo) ** 2 + (Bg / bg) ** 2 + (Bw / bw) ** 2 + (Rso / rgo) ** 2 + (Visc_o / vo) ** 2 + \
+    #                (Visc_g / vg) ** 2 + (Visc_w / vw) ** 2
+    #         # obj+=(Bo/bo) ** 2 + (Bg/bg) ** 2  + (Rso/rgo) ** 2 + \
+    #         #      (Visc_g/vg)**2 + (Visc_o/vo)**2
+    #         # obj+=(Bo/bo) ** 2 + (Rso/rgo) ** 2
+    #         # obj += (Rso / rgo) ** 2
+    #
+    #     return obj

@@ -164,15 +164,8 @@ def plot_properties(df, measured, calculated, title=None, metrics_df=None, prope
     fig.show()
 
 
-def plot_comparePVT(inputs, df_old, df_new, x_axis='p_sat', title=''):
-    # todo: rename cinput columns
-    inputs = inputs.rename({'Rs': 'Rgo',
-                            'Bo_psat': 'Bo',
-                            'Bg_psat': 'Bg',
-                            'visc_o_psat': 'Visc_o',
-                            }, axis='columns')
-
-    properties = list(df_old.columns)
+def plot_comparePVT(inputs, df_old, df_new, x_axis='p', title=''):
+    properties = list(df_new.columns)
 
     fig = plotly_sp.make_subplots(
         rows=2, cols=7,
@@ -209,6 +202,9 @@ def plot_comparePVT(inputs, df_old, df_new, x_axis='p_sat', title=''):
 
             fig.update_xaxes(type=scale, title_text=x_axis, row=i_scale, col=i_prop)
             fig.update_yaxes(type=scale, row=i_scale, col=i_prop)  # , title_text=property_i
+
+            if i_scale == 1:
+                fig.update_yaxes(title_text=scale)
 
             if showlegend:
                 showlegend = False
@@ -257,7 +253,7 @@ def sampling(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
     keys = list(bounds.keys())
     keys_expanded = keys + ['sample']
 
-    p_bounds = bounds['p_sat']
+    p_bounds = bounds['p']
 
     bounds = np.vstack((bounds['API'], bounds['gamma_s'], bounds['temperature'])).T
 
@@ -269,7 +265,7 @@ def sampling(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
             max_val = bounds[1, i]
             X[:, i] = X[:, i] * (max_val - min_val) + min_val
 
-        keys.remove('p_sat')
+        keys.remove('p')
         dfX = pd.DataFrame(X, columns=keys)
         print(f'Sampled values for Synthetic case: \n{dfX}')
 
@@ -302,7 +298,7 @@ def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=
 
     for j, axes_type in enumerate(['linear', 'log']):
         for i, correlation_name in enumerate(correlations_df):
-            data = input_df[['p_sat', 'sample']]
+            data = input_df[['p', 'sample']]
             data[correlation_name] = correlations_df[correlation_name]
             if (j == 1) and (i == nplots - 2):
                 showlegend = True
@@ -313,7 +309,7 @@ def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=
                 palette = sns.color_palette()
 
             g = sns.lineplot(data=data,
-                             x="p_sat",
+                             x="p",
                              y=correlation_name,
                              hue=hueplot,
                              palette=palette,
@@ -329,7 +325,7 @@ def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=
             else:
                 axes[i, j].set_yscale(axes_type)
                 axes[i, j].set_xscale(axes_type)
-    fig.suptitle(name)
+    fig.suptitle(name, fontsize=24)
     plt.tight_layout()
     fig.savefig(fr'figures\synthetic_{name}_hue_{hueplot}')
     plt.show()
@@ -349,12 +345,22 @@ def relativeErrorforMatch(dfold, dfnew, columns=None):
     return error_obj
 
 
-def printInputValues(old, new):
+def printInputValues(old=None, new=None):
     columns = ['API', 'Specific_gravity', 'Temperature']
-    rows = ['Original_Values', 'Calculated_Values']
 
-    old_ = old[['API', 'gamma_s', 'temperature']].iloc[0].values
+    if old is None:
+        rows = ['Calculated_Values']
+        new = np.reshape(new, (1, -1))
+    else:
+        old = old[['API', 'gamma_s', 'temperature']].iloc[0].values
+        rows = ['Original_Values', 'Calculated_Values']
+        new = np.vstack((old, new))
 
-    df = pd.DataFrame(np.vstack((old_, new)), columns=columns, index=rows)
+    df = pd.DataFrame(new, columns=columns, index=rows)
 
     print(f'Result from the match:\n{df}')
+
+
+def concatDF(df1, df2):
+    df3 = pd.concat([df1, df2])
+    return df3

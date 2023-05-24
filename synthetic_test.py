@@ -4,7 +4,7 @@ from correlations.new_correlations import PVTCORR_HGOR
 from correlations.utils import plot_synthetic_data
 
 # range of variables
-bounds = {'p_sat': [100., 3500.],
+bounds = {'p': [100., 3500.],
           'API': [38, 55.],
           'gamma_s': [0.65, 1.],
           'temperature': [130, 300],

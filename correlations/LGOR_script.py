@@ -1,7 +1,7 @@
+import pandas as pd
 from scipy.optimize import differential_evolution
 from collections import defaultdict
 import numpy as np
-
 
 
 class PVTCORR:
@@ -321,6 +321,5 @@ class PVTCORR:
             comparison_dict['Calculated_vw'].append(Visc_w)
             comparison_dict['pressure'].append(p)
         return comparison_dict
-
 
 

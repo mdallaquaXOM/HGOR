@@ -31,10 +31,10 @@ def optimizeParameter(pvt_class,
     api = df['API']
     gas_gravity = df['gamma_c']
     temperature = df['temperature']
-    p_sat = np.array(df['p_sat'])
+    p_sat = np.array(df['p'])
 
     # For metric evaluation
-    rs_measured = np.array(df['Rs'])
+    rs_measured = np.array(df['Rgo'])
 
     if opt_equation == 'Rs':
         # objective function
