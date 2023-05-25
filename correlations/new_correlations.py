@@ -724,51 +724,26 @@ class PVTCORR_HGOR(PVTCORR):
 
         return pvt_df
 
-    def match_PVT_valuesHGOR(self, range_of_values, pvt_old, properties, additional_details=False):
-
-        # columnToMatch = ['Rgo', 'Bo', 'visc_o']  # for all, set: NONE
-        columnToMatch = ['Rgo', 'Bo']  # for all, set: NONE
-        # columnToMatch = None  # for all, set: NONE
+    def match_PVT_valuesHGOR(self, range_of_values, pvt_old, properties, columnToMatch=None,
+                             additional_details=False, disp=False):
 
         def _objFunction(X):
             pvt_new = self.construct_PVT_table_new(properties, inputValues=X)
 
-            obj_value = relativeErrorforMatch(pvt_old, pvt_new, columns=columnToMatch)
+            obj_value, _ = relativeErrorforMatch(pvt_old, pvt_new, columns=columnToMatch)
 
             return obj_value
 
-        res = differential_evolution(_objFunction, range_of_values, seed=100, strategy='best2exp')
+        def printCurrentIteration(xk, convergence):
+            print(f'\t {xk}')
+            # print(convergence)
+
+        res = differential_evolution(_objFunction, range_of_values,
+                                     callback=printCurrentIteration,
+                                     seed=100,
+                                     tol=1.e-4,
+                                     disp=disp,
+                                     strategy='best2exp')
         if additional_details:
             print(res)
-        return res.x
-
-    # def _objFunction2(self, X):
-    #     p_array = np.array(self.pvt_table['p'])
-    #     bo_array = np.array(self.pvt_table['Bo'])
-    #     bg_array = np.array(self.pvt_table['Bg'])
-    #     bw_array = np.array(self.pvt_table['Bw'])
-    #     rgo_array = np.array(self.pvt_table['Rgo'])
-    #     Visc_oil_array = np.array(self.pvt_table['visc_o'])
-    #     Visc_gas_array = np.array(self.pvt_table['visc_g'])
-    #     Visc_water_array = np.array(self.pvt_table['visc_w'])
-    #
-    #     obj = 0.
-    #     for p, bo, bg, bw, rgo, vo, vg, vw in zip(p_array, bo_array, bg_array,
-    #                                               bw_array, rgo_array, Visc_oil_array,
-    #                                               Visc_gas_array, Visc_water_array):
-    #         Rso = self._computeSolutionGasOilRatio(X[0], X[2], p, X[1]) - rgo
-    #         Bo = self._computeLiveOilFVF(X[0], X[2], p, X[1]) - bo
-    #         Bg = self.computeDryGasFVF(p, X[2], X[1]) - bg
-    #         Bw = self.computeWaterFVF(X[2], p) - bw
-    #         Visc_o = self.computeLiveOilViscosity(X[0], X[2], p, X[1]) - vo
-    #         Visc_g = self.computeDryGasViscosity(X[2], p, X[1]) - vg
-    #         Visc_w = self.computerWaterViscosity(p, X[2]) - vw
-    #
-    #         obj += (Bo / bo) ** 2 + (Bg / bg) ** 2 + (Bw / bw) ** 2 + (Rso / rgo) ** 2 + (Visc_o / vo) ** 2 + \
-    #                (Visc_g / vg) ** 2 + (Visc_w / vw) ** 2
-    #         # obj+=(Bo/bo) ** 2 + (Bg/bg) ** 2  + (Rso/rgo) ** 2 + \
-    #         #      (Visc_g/vg)**2 + (Visc_o/vo)**2
-    #         # obj+=(Bo/bo) ** 2 + (Rso/rgo) ** 2
-    #         # obj += (Rso / rgo) ** 2
-    #
-    #     return obj
+        return res.x, res.fun

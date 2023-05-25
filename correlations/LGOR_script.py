@@ -271,17 +271,26 @@ class PVTCORR:
             Visc_o = self.computeLiveOilViscosity(X[0], X[2], p, X[1]) - vo
             Visc_g = self.computeDryGasViscosity(X[2], p, X[1]) - vg
             Visc_w = self.computerWaterViscosity(p, X[2]) - vw
-            obj += (Bo / bo) ** 2 + (Bg / bg) ** 2 + (Bw / bw) ** 2 + (Rso / rgo) ** 2 + (Visc_o / vo) ** 2 + \
-                   (Visc_g / vg) ** 2 + (Visc_w / vw) ** 2
+            # obj += (Bo / bo) ** 2 + (Bg / bg) ** 2 + (Bw / bw) ** 2 + (Rso / rgo) ** 2 + (Visc_o / vo) ** 2 + \
+            #        (Visc_g / vg) ** 2 + (Visc_w / vw) ** 2
             # obj+=(Bo/bo) ** 2 + (Bg/bg) ** 2  + (Rso/rgo) ** 2 + \
             #      (Visc_g/vg)**2 + (Visc_o/vo)**2
-            # obj+=(Bo/bo) ** 2 + (Rso/rgo) ** 2
+            obj += (Bo / bo) ** 2 + (Rso / rgo) ** 2
             # obj += (Rso / rgo) ** 2
 
         return obj
 
-    def match_PVT_values(self, range_of_values, additional_details=False):
-        res = differential_evolution(self._optimizer, range_of_values, seed=100, strategy='best2exp')
+    def match_PVT_values(self, range_of_values, additional_details=False, disp=False, maxiter=1000):
+        def printCurrentIteration(xk, convergence):
+            print(f'\t {xk}')
+            # print(convergence)
+
+        res = differential_evolution(self._optimizer, range_of_values,
+                                     tol=0.01, seed=100, strategy='best2exp',
+                                     disp=disp,
+                                     callback=printCurrentIteration,
+                                     maxiter=maxiter
+                                     )
         if additional_details:
             print(res)
         return res.x
@@ -321,5 +330,3 @@ class PVTCORR:
             comparison_dict['Calculated_vw'].append(Visc_w)
             comparison_dict['pressure'].append(p)
         return comparison_dict
-
-

@@ -203,8 +203,8 @@ def plot_comparePVT(inputs, df_old, df_new, x_axis='p', title=''):
             fig.update_xaxes(type=scale, title_text=x_axis, row=i_scale, col=i_prop)
             fig.update_yaxes(type=scale, row=i_scale, col=i_prop)  # , title_text=property_i
 
-            if i_scale == 1:
-                fig.update_yaxes(title_text=scale)
+            if i_prop == 1:
+                fig.update_yaxes(title_text=scale, row=i_scale, col=i_prop)
 
             if showlegend:
                 showlegend = False
@@ -267,7 +267,7 @@ def sampling(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
 
         keys.remove('p')
         dfX = pd.DataFrame(X, columns=keys)
-        print(f'Sampled values for Synthetic case: \n{dfX}')
+        # print(f'Sampled values for Synthetic case: \n{dfX}')
 
     else:
         raise Exception(f'Sampling method {sampling_type} ot defined')
@@ -287,7 +287,7 @@ def sampling(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
     df = df.sort_values(by='sample').reset_index(drop=True)
 
     df['sample'] = df['sample'].astype(int)
-    return df
+    return df, dfX
 
 
 def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=None):
@@ -331,18 +331,28 @@ def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=
     plt.show()
 
 
-def relativeErrorforMatch(dfold, dfnew, columns=None):
+def relativeErrorforMatch(dfold, dfnew, columns=None, type_error='square'):
     if columns is None:
-        columns = dfold.columns
+        columns = dfnew.columns
+
+    n_samples = dfnew.shape[0]
 
     old_values = dfold[columns].to_numpy()
     new_values = dfnew[columns].to_numpy()
 
-    error = ((new_values - old_values) / old_values) ** 2
-    error_prop = np.sum(error, axis=0)
-    error_obj = np.sum(error_prop)
+    if type_error == 'square':
+        error = ((new_values - old_values) / old_values) ** 2
+    elif type_error == 'abs':
+        error = np.abs(((new_values - old_values) / old_values))
+    else:
+        raise Exception(f'Optimizer error method not implemented: {type_error}')
 
-    return error_obj
+    error_prop = np.sum(error, axis=0) / n_samples
+    error_total = np.sum(error_prop)
+
+    df_error = pd.DataFrame(error_prop.reshape(1, -1), columns=columns)
+
+    return error_total, df_error
 
 
 def printInputValues(old=None, new=None):
@@ -352,7 +362,8 @@ def printInputValues(old=None, new=None):
         rows = ['Calculated_Values']
         new = np.reshape(new, (1, -1))
     else:
-        old = old[['API', 'gamma_s', 'temperature']].iloc[0].values
+        if isinstance(old, pd.DataFrame):
+            old = old[['API', 'gamma_s', 'temperature']].iloc[0].values
         rows = ['Original_Values', 'Calculated_Values']
         new = np.vstack((old, new))
 
@@ -364,3 +375,13 @@ def printInputValues(old=None, new=None):
 def concatDF(df1, df2):
     df3 = pd.concat([df1, df2])
     return df3
+
+
+def metric2df(dict_, errorObj):
+    df = pd.DataFrame.from_dict(dict_).reset_index(names='property')
+    df_long = pd.melt(df, id_vars=['property'], var_name='metric')
+    df_out = df_long.set_index(['metric', 'property']).T
+
+    df_out.insert(0, 'optError', errorObj)
+
+    return df_out

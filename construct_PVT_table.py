@@ -22,7 +22,6 @@ properties = {
         {'principle': 'exponential_rational_15', 'variation': 'michael'}
 }
 
-
 Tsp = 14.7
 Psp = 60
 hgor_treshold = 2000
@@ -31,15 +30,20 @@ for i_type, type_of_data in enumerate(type_of_datas):
 
     if type_of_data.lower() == 'synthetic':
         # range of variables
-        bounds = {'p_sat': [100., 3500.],
+        bounds = {'p': [100., 3500.],
                   'API': [38, 55.],
                   'gamma_s': [0.65, 1.],
                   'temperature': [130, 300],
                   }
 
         # samples of API, Specific Gravity and Temp
-        inputs = sampling(sampling_type='lhs', nVariables=3, n_samples=1, n_psat=50,
-                          random_state=123, bounds=bounds)
+        inputs, _ = sampling(sampling_type='lhs', nVariables=3, n_samples=1, n_psat=50,
+                             random_state=123, bounds=bounds)
+
+        # overwrite inputs
+        inputs['API'] = 51.76405
+        inputs['temperature'] = 261.4015
+        inputs['gamma_s'] = 0.7932375
 
         # create class
         pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=Tsp, Psp=Psp,
@@ -49,8 +53,8 @@ for i_type, type_of_data in enumerate(type_of_datas):
     else:
         pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=Tsp, Psp=Psp,
                             hgor=hgor_treshold,
-                            columns=['temperature', 'API', 'gamma_s', 'Rs', 'p_sat',
-                                     'Bo_psat', 'Bg_psat', 'visc_o_psat'],
+                            columns=['temperature', 'API', 'gamma_s', 'Rgo', 'p',
+                                     'Bo', 'Bg', 'visc_o'],
                             path='data',
                             files=['PVT_Data'],
                             dataAugmentation=0)
