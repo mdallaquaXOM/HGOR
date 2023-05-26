@@ -17,8 +17,8 @@ properties = {
     #       {'principle': 'exponential_rational_15', 'variation': 'michael'},
     'muob':
     # {'principle': 'Beggs_and_Robinson', 'variation': 'original'},
-    #     {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
-        {'principle': 'exponential_rational_15', 'variation': 'michael'}
+        {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
+    #     {'principle': 'exponential_rational_15', 'variation': 'michael'}
 }
 
 # create from PVT table
@@ -46,7 +46,7 @@ pvt_table = pvtc.pvt_table
 # pvt_recreated = pvtc_test.construct_PVT_table_old()
 
 # Optimizer definitions
-ranges = [(20, 55), (0.65, 1.2), (130, 300)]
+ranges = [(30, 55), (0.65, 1.2), (130, 300)]
 
 # Original values calculated
 input_calculated = pvtc.match_PVT_values(ranges, disp=True, maxiter=100)
@@ -63,12 +63,14 @@ input_star, _ = pvtc.match_PVT_valuesHGOR(ranges,
                                           properties=properties,
                                           additional_details=True,
                                           columnToMatch=columnToMatch,
+                                          # x_start=input_calculated,
                                           disp=True)
 
 # Print comparison dor (API, Specific_Gravity, Temperature)
 printInputValues(old=input_calculated, new=input_star)
 
 # New Properties
+#todo: check this
 pvt_new = pvtc.construct_PVT_table_new(properties, inputValues=input_star)
 
 # Comparing both plots.
