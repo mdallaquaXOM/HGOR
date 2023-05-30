@@ -18,8 +18,8 @@ properties = {
     # {'principle': 'exponential_rational_15', 'variation': 'michael'}
     'muob':
     # {'principle': 'Beggs_and_Robinson', 'variation': 'original'},
-    # {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
-        {'principle': 'exponential_rational_15', 'variation': 'michael'}
+    {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
+        # {'principle': 'exponential_rational_15', 'variation': 'michael'}
 }
 
 Tsp = 14.7
