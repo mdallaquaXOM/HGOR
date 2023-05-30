@@ -39,9 +39,11 @@ inputs, sampled_values = sampling(sampling_type='lhs', nVariables=3, n_samples=n
                                   random_state=123, bounds=bounds)
 
 # Optimizer definitions
-ranges = [(30, 55), (0.65, 1.2), (130, 300)]
+# ranges = [(30, 55), (0.65, 1.2), (130, 300)]
+ranges = [(20, 55), (0.5, 1.5), (100, 350)]
 
 errors = []
+matched_values = []
 
 for n_sample in range(n_samples):
     # create class
@@ -58,7 +60,7 @@ for n_sample in range(n_samples):
     pvt_new = pvtc.construct_PVT_table_new(properties)
 
     # Matched PVT
-    print(sampled_values.iloc[n_sample, :].to_numpy())
+    # print(sampled_values.iloc[n_sample, :].to_numpy())
 
     columnToMatch = ['Rgo', 'Bo']
     input_star, error = pvtc.match_PVT_valuesHGOR(ranges,
@@ -70,6 +72,7 @@ for n_sample in range(n_samples):
                                                   x_start=sampled_values.iloc[n_sample, :].to_numpy(),
                                                   printXk=False
                                                   )
+    matched_values.append(input_star)
 
     # Print comparison dor (API, Specific_Gravity, Temperature)
     printInputValues(old=inputs, new=input_star)
@@ -97,12 +100,18 @@ for n_sample in range(n_samples):
     pvt_old.insert(0, 'p', psat)
     pvt_match.insert(0, 'p', psat)
 
-    pvt_old.to_csv(fr'outputs/samples/pvt_old_sample_{n_sample}.csv', index=False)
-    pvt_match.to_csv(fr'outputs/samples/pvt_matched_sample_{n_sample}.csv', index=False)
+    with pd.ExcelWriter(fr'outputs/samples/pvt_{n_sample}.xlsx') as writer:
+        pvt_old.to_excel(writer, index=False, sheet_name='original')
+        pvt_match.to_excel(writer, index=False, sheet_name='matched')
 
+# What were the sampled values
+matched_values_df = pd.DataFrame(matched_values, columns=sampled_values.columns)
 
-# What were the sample values
+# add second layer of index
+sampled_values.columns = pd.MultiIndex.from_product([['original'], sampled_values.columns])
+matched_values_df.columns = pd.MultiIndex.from_product([['matched'], matched_values_df.columns])
+
 metric_all = pd.concat(errors).reset_index(drop=True)
-summary = pd.concat([sampled_values, metric_all], axis=1)
+summary = pd.concat([sampled_values, matched_values_df, metric_all], axis=1)
 
 summary.to_excel(fr"outputs/errors_match.xlsx")
