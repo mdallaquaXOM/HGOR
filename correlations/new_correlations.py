@@ -585,8 +585,9 @@ class PVTCORR_HGOR(PVTCORR):
 
         return comparison_star
 
-    def construct_PVT_table_new(self, properties, rs_best_correlation=None,
-                                new_parameters=None, source=None, inputValues=None):
+    def construct_PVT_table_new(self, properties: object, rs_best_correlation: object = None,
+                                new_parameters: object = None, source: object = None,
+                                inputValues: object = None) -> object:
 
         df = self.pvt_table
 
@@ -655,7 +656,7 @@ class PVTCORR_HGOR(PVTCORR):
         }
 
         # treat outputs
-        pvt_df = pd.DataFrame.from_dict(pvt_dic)
+        pvt_df = pd.DataFrame.from_dict(pvt_dic).reset_index(drop=True)
 
         return pvt_df
 
@@ -719,31 +720,35 @@ class PVTCORR_HGOR(PVTCORR):
         }
 
         # treat outputs
-        pvt_df = pd.DataFrame.from_dict(pvt_dic)
+        pvt_df = pd.DataFrame.from_dict(pvt_dic).reset_index(drop=True)
         # comparison_df['HGOR'] = df['HGOR']
 
         return pvt_df
 
     def match_PVT_valuesHGOR(self, range_of_values, pvt_old, properties, columnToMatch=None,
-                             additional_details=False, disp=False):
+                             additional_details=False, disp=False, x_start=None, metric_func='AARE', printXk=False):
 
         def _objFunction(X):
             pvt_new = self.construct_PVT_table_new(properties, inputValues=X)
 
             obj_value, _ = relativeErrorforMatch(pvt_old, pvt_new, columns=columnToMatch)
+            # metrics_ = metrics(pvt_old, pvt_new, columns=columnToMatch)
+            # obj_value = metrics_[metric_func]
 
             return obj_value
 
         def printCurrentIteration(xk, convergence):
-            print(f'\t {xk}')
-            # print(convergence)
+            if printXk:
+                print(f'\t Current best solution: {xk}')
+                # print(convergence)
 
         res = differential_evolution(_objFunction, range_of_values,
                                      callback=printCurrentIteration,
                                      seed=100,
                                      tol=1.e-4,
                                      disp=disp,
-                                     strategy='best2exp')
+                                     strategy='best2exp',
+                                     x0=x_start)
         if additional_details:
             print(res)
         return res.x, res.fun

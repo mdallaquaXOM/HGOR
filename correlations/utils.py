@@ -164,11 +164,14 @@ def plot_properties(df, measured, calculated, title=None, metrics_df=None, prope
     fig.show()
 
 
-def plot_comparePVT(inputs, df_old, df_new, x_axis='p', title=''):
-    properties = list(df_new.columns)
+def plot_comparePVT(inputs, df_old, df_new, df_opt=None, x_axis='p', title='', path='', properties=None):
+    if properties is None:
+        properties = list(df_new.columns)
+
+    n_properties = len(properties)
 
     fig = plotly_sp.make_subplots(
-        rows=2, cols=7,
+        rows=2, cols=n_properties,
         shared_xaxes='rows', shared_yaxes='columns',
         # vertical_spacing=0.03,
         subplot_titles=properties + properties,
@@ -176,35 +179,46 @@ def plot_comparePVT(inputs, df_old, df_new, x_axis='p', title=''):
 
     showlegend = True
 
+    legends = ['Lab Value', 'Old PVT', 'New PVT', 'Matched PVT']
+
     for i_scale, scale in enumerate(['linear', 'log'], 1):
         for i_prop, property_i in enumerate(properties, 1):
-            if property_i in inputs:
-                fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=inputs[property_i],
-                                         name='Lab Value',
-                                         marker={'color': "black", 'symbol': 'circle-open'},
-                                         legendgroup='group1', showlegend=showlegend),
-                              row=i_scale, col=i_prop
-                              )
 
             fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_old[property_i],
-                                     name='Old PVT',
+                                     name=legends[1],
                                      marker={'color': "red", 'symbol': 'square'},
                                      legendgroup='group2', showlegend=showlegend),
                           row=i_scale, col=i_prop
                           )
 
             fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_new[property_i],
-                                     name='New PVT',
+                                     name=legends[2],
                                      marker={'color': "blue", 'symbol': 'x'},
                                      legendgroup='group3', showlegend=showlegend),
                           row=i_scale, col=i_prop
                           )
 
+            if df_opt is not None:
+                fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_opt[property_i],
+                                         name=legends[3],
+                                         marker={'color': "green", 'symbol': 'circle-cross'},
+                                         legendgroup='group4', showlegend=showlegend),
+                              row=i_scale, col=i_prop
+                              )
+
+            if property_i in inputs:
+                fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=inputs[property_i],
+                                         name=legends[0],
+                                         marker={'color': "black", 'symbol': 'circle-open'},
+                                         legendgroup='group1', showlegend=showlegend),
+                              row=i_scale, col=i_prop
+                              )
+
             fig.update_xaxes(type=scale, title_text=x_axis, row=i_scale, col=i_prop)
             fig.update_yaxes(type=scale, row=i_scale, col=i_prop)  # , title_text=property_i
 
             if i_prop == 1:
-                fig.update_yaxes(title_text=scale, row=i_scale, col=i_prop)
+                fig.update_yaxes(title_text=f'<b>{scale}</b>', row=i_scale, col=i_prop)
 
             if showlegend:
                 showlegend = False
@@ -216,7 +230,7 @@ def plot_comparePVT(inputs, df_old, df_new, x_axis='p', title=''):
                    automargin=True)
     )
 
-    fig.write_html(fr"figures/comparingPVTs_{title}.html")
+    fig.write_html(fr"{path}comparingPVTs_{title}.html")
     fig.show()
 
 
@@ -228,7 +242,11 @@ def plot_pairplots(df, hue='', origin='xom'):
     g2.figure.savefig(rf'figures/pairplots_Rs_{origin}.png')
 
 
-def metrics(measured, calculated):
+def metrics(measured, calculated, columns=None):
+    if columns is not None:
+        measured = measured[columns].to_numpy()
+        calculated = calculated[columns].to_numpy()
+
     # remove nan
     nan_measured = ~np.isnan(measured)
     measured = measured[nan_measured]
@@ -331,7 +349,7 @@ def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=
     plt.show()
 
 
-def relativeErrorforMatch(dfold, dfnew, columns=None, type_error='square'):
+def relativeErrorforMatch(dfold, dfnew, columns=None, type_error='abs'):
     if columns is None:
         columns = dfnew.columns
 
@@ -377,11 +395,12 @@ def concatDF(df1, df2):
     return df3
 
 
-def metric2df(dict_, errorObj):
+def metric2df(dict_, errorObj=None):
     df = pd.DataFrame.from_dict(dict_).reset_index(names='property')
     df_long = pd.melt(df, id_vars=['property'], var_name='metric')
     df_out = df_long.set_index(['metric', 'property']).T
 
-    df_out.insert(0, 'optError', errorObj)
+    if errorObj is not None:
+        df_out.insert(0, 'optError', errorObj)
 
     return df_out
