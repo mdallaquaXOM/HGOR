@@ -720,7 +720,7 @@ class PVTCORR_HGOR(PVTCORR):
         }
 
         # treat outputs
-        pvt_df = pd.DataFrame.from_dict(pvt_dic)
+        pvt_df = pd.DataFrame.from_dict(pvt_dic).reset_index(drop=True)
         # comparison_df['HGOR'] = df['HGOR']
 
         return pvt_df

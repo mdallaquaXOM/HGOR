@@ -214,12 +214,11 @@ def plot_comparePVT(inputs, df_old, df_new, df_opt=None, x_axis='p', title='', p
                               row=i_scale, col=i_prop
                               )
 
-
-            fig.update_xaxes(type=scale, title_text=f'<b>{x_axis}</b>', row=i_scale, col=i_prop)
+            fig.update_xaxes(type=scale, title_text=x_axis, row=i_scale, col=i_prop)
             fig.update_yaxes(type=scale, row=i_scale, col=i_prop)  # , title_text=property_i
 
             if i_prop == 1:
-                fig.update_yaxes(title_text=scale, row=i_scale, col=i_prop)
+                fig.update_yaxes(title_text=f'<b>{scale}</b>', row=i_scale, col=i_prop)
 
             if showlegend:
                 showlegend = False

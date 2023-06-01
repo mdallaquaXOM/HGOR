@@ -1,6 +1,6 @@
 import pandas as pd
 
-from correlations.utils import sampling, printInputValues, plot_comparePVT, metrics, metric2df
+from correlations.utils import sampling, printInputValues, plot_comparePVT, metrics, metric2df, relativeErrorforMatch
 from correlations.new_correlations import PVTCORR_HGOR
 
 # New Correlations  - select JUST ONE !!!!!!
@@ -35,23 +35,25 @@ bounds = {'p': [100., 4900.],
 n_samples = 30
 
 # samples of API, Specific Gravity and Temp
-inputs, sampled_values = sampling(sampling_type='lhs', nVariables=3, n_samples=n_samples, n_psat=25,
-                                  random_state=123, bounds=bounds)
+inputs, input_sampled = sampling(sampling_type='lhs', nVariables=3, n_samples=n_samples, n_psat=15,
+                                 random_state=123, bounds=bounds)
 
 # Optimizer definitions
 # ranges = [(30, 55), (0.65, 1.2), (130, 300)]
-ranges = [(20, 55), (0.5, 1.5), (100, 350)]
+ranges = [(20, 55), (0.45, 1.8), (100, 400)]
 
 errors = []
-matched_values = []
+input_matched = []
+columnToMatch = ['Rgo', 'Bg']
 
 for n_sample in range(n_samples):
     # create class
+    pvt_input = inputs[inputs['sample'] == n_sample].reset_index(drop=True)
+
     pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
                         hgor=2000.,
-                        data=inputs[inputs['sample'] == n_sample]
+                        data=pvt_input
                         )
-    pvt_input = pvtc.pvt_table
 
     # Old Properties
     pvt_old = pvtc.construct_PVT_table_old()
@@ -62,17 +64,16 @@ for n_sample in range(n_samples):
     # Matched PVT
     # print(sampled_values.iloc[n_sample, :].to_numpy())
 
-    columnToMatch = ['Rgo', 'Bo']
-    input_star, error = pvtc.match_PVT_valuesHGOR(ranges,
-                                                  pvt_old=pvt_old,
-                                                  properties=properties,
-                                                  additional_details=True,
-                                                  columnToMatch=columnToMatch,
-                                                  disp=True,
-                                                  x_start=sampled_values.iloc[n_sample, :].to_numpy(),
-                                                  printXk=False
-                                                  )
-    matched_values.append(input_star)
+    input_star, error_opt = pvtc.match_PVT_valuesHGOR(ranges,
+                                                      pvt_old=pvt_old,
+                                                      properties=properties,
+                                                      additional_details=True,
+                                                      columnToMatch=columnToMatch,
+                                                      disp=True,
+                                                      x_start=input_sampled.iloc[n_sample, :].to_numpy(),
+                                                      printXk=False
+                                                      )
+    input_matched.append(input_star)
 
     # Print comparison dor (API, Specific_Gravity, Temperature)
     printInputValues(old=inputs, new=input_star)
@@ -80,9 +81,15 @@ for n_sample in range(n_samples):
     # New Properties
     pvt_match = pvtc.construct_PVT_table_new(properties, inputValues=input_star)
 
-    # Get the error
+    # Get the error and metrics
     metrics_dict = metrics(pvt_old, pvt_match)
-    metric_df = metric2df(metrics_dict, error)
+    metric_df = metric2df(metrics_dict).reset_index(drop=True)
+
+    error_total, _ = relativeErrorforMatch(pvt_old, pvt_match)
+    error_df = pd.DataFrame([[error_total, error_opt]], columns=['total', 'optimization'])
+    error_df.columns = pd.MultiIndex.from_product([['errors'], error_df.columns])
+
+    errors.append(pd.concat([error_df, metric_df], axis=1))
 
     # Comparing both plots.
     plot_comparePVT(inputs=pvt_input,
@@ -91,9 +98,6 @@ for n_sample in range(n_samples):
                     df_opt=pvt_match,
                     title=f'Match_sample_{n_sample}',
                     path=r'figures/matching/')
-
-    # save errors
-    errors.append(metric_df)
 
     # print tables
     psat = pvtc.pvt_table['p']
@@ -105,13 +109,13 @@ for n_sample in range(n_samples):
         pvt_match.to_excel(writer, index=False, sheet_name='matched')
 
 # What were the sampled values
-matched_values_df = pd.DataFrame(matched_values, columns=sampled_values.columns)
+matched_values_df = pd.DataFrame(input_matched, columns=input_sampled.columns)
 
 # add second layer of index
-sampled_values.columns = pd.MultiIndex.from_product([['original'], sampled_values.columns])
+input_sampled.columns = pd.MultiIndex.from_product([['original'], input_sampled.columns])
 matched_values_df.columns = pd.MultiIndex.from_product([['matched'], matched_values_df.columns])
 
 metric_all = pd.concat(errors).reset_index(drop=True)
-summary = pd.concat([sampled_values, matched_values_df, metric_all], axis=1)
+summary = pd.concat([input_sampled, matched_values_df, metric_all], axis=1)
 
 summary.to_excel(fr"outputs/errors_match.xlsx")
