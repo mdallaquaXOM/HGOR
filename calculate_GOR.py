@@ -1,5 +1,5 @@
 import pickle
-from correlations.new_correlations import PVTCORR_HGOR
+from correlations.HGOR_script import PVTCORR_HGOR
 from correlations.utils import *
 from correlations.optimizer import optimizeParameter
 from correlations.definitions import *

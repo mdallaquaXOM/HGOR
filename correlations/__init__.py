@@ -1,6 +1,6 @@
 __all__ = [
     "LGOR_script",
-    "new_correlations",
+    "HGOR_script.py",
     'optimizer',
     'utils',
     'grace'

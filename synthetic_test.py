@@ -1,6 +1,6 @@
 import numpy as np
 from correlations.utils import sampling
-from correlations.new_correlations import PVTCORR_HGOR
+from correlations.HGOR_script import PVTCORR_HGOR
 from correlations.utils import plot_synthetic_data
 
 # range of variables
