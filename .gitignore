@@ -6,3 +6,4 @@
 *.html
 *.xlsx
 *.7z
+/outputs
