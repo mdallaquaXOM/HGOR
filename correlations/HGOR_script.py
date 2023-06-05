@@ -10,10 +10,11 @@ from scipy.optimize import minimize, Bounds, differential_evolution
 
 class PVTCORR_HGOR(PVTCORR):
     def __init__(self, path='', files='', data=None, columns=None, hgor=2000, dataAugmentation=None, header=1,
-                 inputData=True, skiprows=None,
+                 inputData=True, skiprows=None, separator_stages=3, Psp1=None, Psp2=None,Tsp1=None, Tsp2=None,
+                 correct_specific_gravity=True,
                  **kwargs):
 
-        super().__init__(**kwargs)
+        super().__init__(Tsp=Tsp1, Psp=Psp1, **kwargs)
 
         if data is None:
             pvt_tables = []
@@ -29,13 +30,15 @@ class PVTCORR_HGOR(PVTCORR):
             pvt_table = data
 
         # Calculate corrected gas gravity (?)
-        if inputData:
-            if 'gamma_c' not in pvt_table.columns:
-                api = pvt_table['API']
-                gas_gravity = pvt_table['gamma_s']
 
-                gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, api)
-                pvt_table['gamma_c'] = gamma_gs
+        if inputData:
+            if correct_specific_gravity:
+                if 'gamma_c' not in pvt_table.columns:
+                    api = pvt_table['API']
+                    gas_gravity = pvt_table['gamma_s']
+
+                    gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, api)
+                    pvt_table['gamma_c'] = gamma_gs
 
             # Assign flag for HGOR
             if 'Rgo' in pvt_table:
@@ -46,6 +49,10 @@ class PVTCORR_HGOR(PVTCORR):
                     hgor = pvt_table[pvt_table['HGOR'] == True]
                     for i in range(dataAugmentation):
                         pvt_table = pd.concat([pvt_table, hgor])
+
+        self.separator_stages = separator_stages
+        self.Psp1 = Psp1
+        self.Psp2 = Psp2
 
         self.pvt_table = pvt_table
 
@@ -497,6 +504,10 @@ class PVTCORR_HGOR(PVTCORR):
                     temp = self._computeMuobAtSatPres(api, temperature, p_sat, gas_gravity,
                                                       method=correlation,
                                                       rs_best_correlation=rs_best_correlation)
+                elif property_ == 'cgr':
+                    temp = self._computeCondensateGasRate()
+
+
                 else:
                     raise Exception(f'Property unknown {property_}')
 
@@ -752,3 +763,24 @@ class PVTCORR_HGOR(PVTCORR):
         if additional_details:
             print(res)
         return res.x, res.fun
+
+    def _computeCondensateGasRate(self, pressure, temperature, api, specific_gravity_sp1, specific_gravity_sp2):
+        # correlations based on
+        #  Nasser (2013) - Modified Black Oil PVT Properties Correlations for Volatile Oil and Gas Condensate Reservoirs
+
+        # Rvi: For gas condensates, it will be available from production # data while for volatile oils, it will be
+        # calculated from the new correlation.
+        A0, A1, A2, A3, A4, A5 = nassar_CGR_knownPsat['GC'][self.separator_stages]
+
+        X = specific_gravity_sp1 * self.Psp1
+        Y = specific_gravity_sp2 * self.Psp2
+        V = api/temperature
+
+        a = A0*pressure**2 + A1*pressure + A2
+        b = np.exp(A3*X + A4*Y)
+        c = np.exp(A5*V)
+
+
+        Rv = a * b * c * Rvi
+
+        return rv

@@ -6,7 +6,7 @@ from correlations.definitions import *
 
 pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
                     hgor=2000,
-                  columns=['temperature', 'API', 'gamma_s', 'Rgo', 'p', 'Bo', 'visc_o'],
+                    columns=['temperature', 'API', 'gamma_s', 'Rgo', 'p', 'Bo', 'visc_o'],
                     path='data',
                     files=['PVT_Data', 'PVT_paper'],
                     dataAugmentation=1)

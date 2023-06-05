@@ -4,7 +4,8 @@ from correlations.utils import *
 from correlations.optimizer import optimizeParameter
 from correlations.definitions import *
 
-pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
+pvtc = PVTCORR_HGOR(sat_pressure=None,
+                    Tsp=60, Psp=14.7,
                     hgor=2000,
                     columns=['temperature', 'API', 'gamma_s', 'Rgo', 'p', 'Bo', 'visc_o'],
                     path='data',

@@ -404,3 +404,4 @@ def metric2df(dict_, errorObj=None):
         df_out.insert(0, 'optError', errorObj)
 
     return df_out
+
