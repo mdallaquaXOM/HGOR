@@ -554,6 +554,7 @@ class PVTCORR_HGOR(PVTCORR):
         newparameter_prop_correl = None
 
         for property_, correlations in properties.items():
+            property_ = property_.lower()
             # get the new parameters for the property in question
             if new_parameters is not None:
                 if property_ in new_parameters:
@@ -566,11 +567,11 @@ class PVTCORR_HGOR(PVTCORR):
                     newparameter_prop_correl = new_parameter[correlation['principle']]
 
                 # function to call will depend on the property_
-                if property_ == 'Rs':
+                if property_ == 'rs':
                     temp = self._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
                                                      method=correlation,
                                                      parameters=newparameter_prop_correl)
-                elif property_ == 'Bo':
+                elif property_ == 'bo':
                     temp = self._computeBoAtSatPres(api, temperature, p_sat, gas_gravity,
                                                     method=correlation,
                                                     rs_best_correlation=rs_best_correlation)
@@ -579,6 +580,12 @@ class PVTCORR_HGOR(PVTCORR):
                     temp = self._computeMuobAtSatPres(api, temperature, p_sat, gas_gravity,
                                                       method=correlation,
                                                       rs_best_correlation=rs_best_correlation)
+
+                elif property_ == 'cgr':
+                    temp = self._computeCondensateGasRate(api=api, temperature=temperature, pressure=p_sat,
+                                                          gas_gravity=gas_gravity, method=correlation,
+                                                          )
+
                 else:
                     raise Exception(f'Property unknown {property_}')
 
@@ -786,22 +793,24 @@ class PVTCORR_HGOR(PVTCORR):
 
         return CGR_i
 
-    def _computeCondensateGasRate(self, pressure, temperature, gamma_g=None, gamma_cond=None, specific_gravity_sp1=None,
+    def _computeCondensateGasRate(self, pressure, temperature, gas_gravity=None, gamma_cond=None,
+                                  specific_gravity_sp1=None,
                                   specific_gravity_sp2=None, Rvi=None, method=None, api=None):
         # correlations based on
         #  Nasser (2013) - Modified Black Oil PVT Properties Correlations for Volatile Oil and Gas Condensate Reservoirs
 
         # Rvi: For gas condensates, it will be available from production # data while for volatile oils, it will be
         # calculated from the new correlation.
-        if Rvi is None:
-            Rvi = self._computeCGRinitial(pressure, gamma_cond, temperature,
-                                          specific_gravity_sp1, specific_gravity_sp2,
-                                          method)
 
         principle = method['principle'].lower()
         variation = method['variation'].lower()
 
         if principle == "nasser":
+            if Rvi is None:
+                Rvi = self._computeCGRinitial(pressure, gamma_cond, temperature,
+                                              specific_gravity_sp1, specific_gravity_sp2,
+                                              method)
+
             if variation == "knownPsat":
                 A0, A1, A2, A3, A4, A5 = nassar_CGR_knownPsat['GC'][self.separator_stages]
                 psat = pressure  # todo: correct psat
@@ -819,9 +828,9 @@ class PVTCORR_HGOR(PVTCORR):
             Rv = a * b * c * Rvi
 
         elif principle == "ace":
-            if variation == 'ovale':
+            if variation == 'ovalle':
                 ln_p = np.log(pressure)
-                z = [ln_p, api, gamma_g, temperature]
+                z = [ln_p, api, gas_gravity, temperature]
                 var = ['ln_p', 'Api', 'gamma', 'temp']
 
                 z_sum = 0.
@@ -839,7 +848,7 @@ class PVTCORR_HGOR(PVTCORR):
 
         return Rv
 
-    def test_RV_calculation(self, properties, new_parameters=None, source=None):
+    def test_RV_Nasser(self, properties, new_parameters=None, source=None):
 
         df = self.pvt_table
 

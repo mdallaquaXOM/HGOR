@@ -64,7 +64,7 @@ pvtc = PVTCORR_HGOR(sat_pressure=None,
                     data=inputs,
                     correct_specific_gravity=False)
 
-pvt_df = pvtc.test_RV_calculation(properties)
+pvt_df = pvtc.test_RV_Nasser(properties)
 
 input_table = pvtc.pvt_table
 
