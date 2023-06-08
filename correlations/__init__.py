@@ -1,7 +1,7 @@
 __all__ = [
     "LGOR_script",
-    "HGOR_script.py",
+    "HGOR_script",
     'optimizer',
     'utils',
-    'grace'
+    'ace'
     ]

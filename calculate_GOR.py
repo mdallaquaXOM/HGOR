@@ -63,7 +63,7 @@ pickle.dump(new_parameters, open(r"optimizedParam/opt_results.pickle", "wb"))
 properties = {'Rs': [
     {'principle': 'vasquez_beggs', 'variation': 'original'},
     {'principle': 'vasquez_beggs', 'variation': 'optimized'},
-    {'principle': 'vasquez_beggs', 'variation': 'meija'},
+    # {'principle': 'vasquez_beggs', 'variation': 'meija'},
     {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
     {'principle': 'exponential_rational_8', 'variation': 'optimized'},
     {'principle': 'exponential_rational_16', 'variation': 'blasingame'},

@@ -10,11 +10,11 @@ from scipy.optimize import minimize, Bounds, differential_evolution
 
 class PVTCORR_HGOR(PVTCORR):
     def __init__(self, path='', files='', data=None, columns=None, hgor=2000, dataAugmentation=None, header=1,
-                 inputData=True, skiprows=None, separator_stages=3, Psp1=None, Psp2=None,Tsp1=None, Tsp2=None,
+                 inputData=True, skiprows=None, separator_stages=3, Psp=None, Psp2=None, Tsp=None, Tsp2=None,
                  correct_specific_gravity=True,
                  **kwargs):
 
-        super().__init__(Tsp=Tsp1, Psp=Psp1, **kwargs)
+        super().__init__(Tsp=Tsp, Psp=Psp, **kwargs)
 
         if data is None:
             pvt_tables = []
@@ -51,7 +51,7 @@ class PVTCORR_HGOR(PVTCORR):
                         pvt_table = pd.concat([pvt_table, hgor])
 
         self.separator_stages = separator_stages
-        self.Psp1 = Psp1
+        self.Psp1 = Psp
         self.Psp2 = Psp2
 
         self.pvt_table = pvt_table
@@ -764,23 +764,130 @@ class PVTCORR_HGOR(PVTCORR):
             print(res)
         return res.x, res.fun
 
-    def _computeCondensateGasRate(self, pressure, temperature, api, specific_gravity_sp1, specific_gravity_sp2):
+    def _computeCGRinitial(self, psat, gamma_cond, temperature,
+                           specific_gravity_sp1, specific_gravity_sp2,
+                           method):
+        # Rvi = ( psat * STO^(-A3) * Tr^(-A4) * (X+Y)^(-A2) / A0  )^(1/A2)
+        principle = method['principle'].lower()
+
+        if principle == "nasser":
+            A0, A1, A2, A3, A4 = nassar_psat['GC'][self.separator_stages]
+        else:
+            raise Exception(f'CGR_initial method {principle}  not coded')
+
+        X = specific_gravity_sp1 / self.Psp1
+        Y = specific_gravity_sp2 / self.Psp2
+
+        a = (X + Y) ** A2
+        b = gamma_cond ** A3
+        c = temperature ** A4
+
+        CGR_i = (psat / (A0 * a * b * c)) ** (1 / A1)
+
+        return CGR_i
+
+    def _computeCondensateGasRate(self, pressure, temperature, gamma_g=None, gamma_cond=None, specific_gravity_sp1=None,
+                                  specific_gravity_sp2=None, Rvi=None, method=None, api=None):
         # correlations based on
         #  Nasser (2013) - Modified Black Oil PVT Properties Correlations for Volatile Oil and Gas Condensate Reservoirs
 
         # Rvi: For gas condensates, it will be available from production # data while for volatile oils, it will be
         # calculated from the new correlation.
-        A0, A1, A2, A3, A4, A5 = nassar_CGR_knownPsat['GC'][self.separator_stages]
+        if Rvi is None:
+            Rvi = self._computeCGRinitial(pressure, gamma_cond, temperature,
+                                          specific_gravity_sp1, specific_gravity_sp2,
+                                          method)
 
-        X = specific_gravity_sp1 * self.Psp1
-        Y = specific_gravity_sp2 * self.Psp2
-        V = api/temperature
+        principle = method['principle'].lower()
+        variation = method['variation'].lower()
 
-        a = A0*pressure**2 + A1*pressure + A2
-        b = np.exp(A3*X + A4*Y)
-        c = np.exp(A5*V)
+        if principle == "nasser":
+            if variation == "knownPsat":
+                A0, A1, A2, A3, A4, A5 = nassar_CGR_knownPsat['GC'][self.separator_stages]
+                psat = pressure  # todo: correct psat
+            else:  # variation == "unknonwPsat":
+                A0, A1, A2, A3, A4, A5 = nassar_CGR_unknownPsat['GC'][self.separator_stages]
+                psat = 1.
 
+            X = specific_gravity_sp1 * self.Psp1
+            Y = specific_gravity_sp2 * self.Psp2
+            V = gamma_cond * psat / temperature
 
-        Rv = a * b * c * Rvi
+            a = A0 * pressure ** 2 + A1 * pressure + A2
+            b = np.exp(A3 * X + A4 * Y)
+            c = np.exp(A5 * V)
+            Rv = a * b * c * Rvi
 
-        return rv
+        elif principle == "ace":
+            if variation == 'ovale':
+                ln_p = np.log(pressure)
+                z = [ln_p, api, gamma_g, temperature]
+                var = ['ln_p', 'Api', 'gamma', 'temp']
+
+                z_sum = 0.
+                for n, zn in enumerate(z):
+                    varn = var[n]
+                    C0, C1, C2, C3, C4 = ovalle['Rv'][varn]
+                    z_sum += C0 + C1 * zn + C2 * zn ** 2 + C3 * zn ** 3 + C4 * zn ** 4
+
+                ln_rv = 3.684 + 0.61967 * z_sum + 0.01539 * z_sum ** 2
+                Rv = np.exp(ln_rv)
+            else:
+                raise Exception(f'Rv method {principle} with variation ({variation}) not coded')
+        else:
+            raise Exception(f'Rv method {principle} with variation ({variation}) not coded')
+
+        return Rv
+
+    def test_RV_calculation(self, properties, new_parameters=None, source=None):
+
+        df = self.pvt_table
+
+        if source is not None:
+            mask = df['source'] == source
+            df = df[mask].reset_index(drop=True)
+
+        p_sat = np.array(df['p'])
+        temperature = np.array(df['temperature'])
+        api = np.array(df['API'])
+        specific_gravity_sp1 = np.array(df['gamma_sp1'])
+        specific_gravity_sp2 = np.array(df['gamma_sp2'])
+        # Rvi = np.array(df['Rvi'])
+
+        # conver API to specific gravity
+        gamma_cond = 141.5 / (api + 131.5)
+
+        # Pvt properties
+        # New correlations
+        comparison_star = {}
+
+        for property_, correlations in properties.items():
+            # get the new parameters for the property in question
+            if new_parameters is not None:
+                if property_ in new_parameters:
+                    new_parameter = new_parameters[property_]
+
+            prop_values = {'method': [], 'values': []}
+            for correlation in correlations:
+                cgr_c = self._computeCondensateGasRate(p_sat, temperature, gamma_cond, specific_gravity_sp1,
+                                                       specific_gravity_sp2, method=correlation, api=api)
+
+                # treat outputs
+                # pvt_df = pd.DataFrame.from_dict(pvt_dic).reset_index(drop=True)
+
+                method = correlation['principle'] + '_' + correlation['variation']
+                prop_values['method'].append(method)
+                prop_values['values'].append(cgr_c)
+
+            # convert  STB/MMscf to STB/Mscf
+            # rv_c /= 1000.
+
+            # convert things to dataframe
+            comparison_df = pd.DataFrame(prop_values['values'], index=prop_values['method']).T
+
+            # # add HGOR flag
+            # comparison_df['HGOR'] = df['HGOR']
+
+            comparison_star[property_] = comparison_df
+
+        return comparison_star

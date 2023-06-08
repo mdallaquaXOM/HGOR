@@ -257,11 +257,31 @@ def metrics(measured, calculated, columns=None):
 
     n_samples = measured.shape[0]
 
+    # metrics
+    # 1 - ADE: Absolute Difference Error
+    # 2 - LSE: Least-Squares Error
+    # 3 - ARE: Average  Relative Error
+    #           measure of the bias of the correlation; a value of zero indicates a random
+    #           deviation of the measured values around the correlation. If the deviations
+    #           in the laboratory-measured values of a property are truly random, a
+    #           correlation with a very small value of ARE will result in predicted values
+    #           as accurate, or possibly more accurate, than laboratory measurements.
+    # 4 - AARE: Average Absolute Relative Error
+    #           indication of both the precision of the correlation and the
+    #           accuracy of the data. A small value of AARE denotes a good correlation
+    #           based on good data. A large value of AARE could mean a poor quality
+    #           correlation (inadequate functional form). However, the situation of
+    #           several different correlation equations all with large values of AARE
+    #           most likely indicates poor quality data.
+
     ADE = np.sum(np.abs(ln_measured - ln_calculated))
     LSE = np.sum(np.power(ln_measured - ln_calculated, 2))
-    AARE = np.sum(np.abs((measured - calculated) / calculated)) * 100 / n_samples
 
-    metrics_ = {'ADE': ADE, 'LSE': LSE, 'AARE': AARE}
+    ARE = np.sum((measured - calculated) / measured) * 100 / n_samples
+    # AARE = np.sum(np.abs((measured - calculated) / calculated)) * 100 / n_samples # Blasingame paper
+    AARE = np.sum(np.abs((measured - calculated) / measured)) * 100 / n_samples
+
+    metrics_ = {'ADE': ADE, 'LSE': LSE, 'ARE': ARE, 'AARE': AARE}
 
     return metrics_
 
@@ -308,11 +328,54 @@ def sampling(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
     return df, dfX
 
 
+# todo: merge sampling methods
+def sampling2(bounds, sampling_type='lhs', n_samples=100, criterion=None,
+              random_state=123,
+              psat_bounds=None, n_psat=50, ):
+    nVariables = len(bounds)
+
+    keys = list(bounds.keys())
+    keys_expanded = ['p'] + keys + ['sample']
+
+    bounds = np.vstack(list(bounds.values())).T
+
+    if sampling_type == 'lhs':
+        X = lhs(nVariables, samples=n_samples, random_state=random_state)
+
+        for i in range(nVariables):
+            min_val = bounds[0, i]
+            max_val = bounds[1, i]
+            X[:, i] = X[:, i] * (max_val - min_val) + min_val
+
+        dfX = pd.DataFrame(X, columns=keys)
+        # print(f'Sampled values for Synthetic case: \n{dfX}')
+
+    else:
+        raise Exception(f'Sampling method {sampling_type} ot defined')
+
+    # include pressure
+    psat = np.linspace(start=psat_bounds[0], stop=psat_bounds[1], num=n_psat)
+    sampleNumber = np.reshape(np.arange(n_samples, dtype=int), (-1, 1))
+
+    # combinatorial
+    # todo: improve Code Quality
+    Y = []
+    for i in range(n_psat):
+        psat_i = np.full((n_samples, 1), psat[i])
+        Y.append(np.hstack((psat_i, X, sampleNumber)))
+
+    df = pd.DataFrame(np.concatenate(Y), columns=keys_expanded)
+    df = df.sort_values(by='sample').reset_index(drop=True)
+
+    df['sample'] = df['sample'].astype(int)
+    return df, dfX
+
+
 def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=None):
     palette = None
     nplots = len(correlations_df.columns)
 
-    fig, axes = plt.subplots(nrows=nplots, ncols=2, figsize=(10, 12))
+    fig, axes = plt.subplots(nrows=nplots, ncols=2, figsize=(10, 12), squeeze=False)
 
     for j, axes_type in enumerate(['linear', 'log']):
         for i, correlation_name in enumerate(correlations_df):
@@ -335,7 +398,7 @@ def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=
                              legend=showlegend
                              )
 
-            axes[i, j].set_title(correlation_name)
+            axes[i, j].set_title(axes_type + '_' + correlation_name)
             axes[i, j].set_ylabel('')
 
             if (j == 1) and (correlation_name == jumpLog):
@@ -405,3 +468,54 @@ def metric2df(dict_, errorObj=None):
 
     return df_out
 
+
+def read_column_data_from_dat(fname, independent_var=None, log=None):
+    """
+    Read data from a simple text file.
+
+    Format should be just numbers.
+    First column is the dependent variable. others are independent.
+    Whitespace delimited.
+
+    Returns
+    -------
+    x_values : list
+        List of x columns
+    y_values : list
+        list of y values
+
+    """
+    datafile = open(fname)
+    datarows = []
+
+    for iline, line in enumerate(datafile):
+        if iline == 0:
+            headers = line.split()
+        else:
+            datarows.append([float(li) for li in line.split()])
+    datacols = list(zip(*datarows))
+
+    # convert to log if asked
+    if log is not None:
+        for var_log in log:
+            log_var_idx = headers.index(var_log)
+            log_var = np.log(datacols[log_var_idx])
+            datacols[log_var_idx] = log_var
+            # datacols[log_var_idx] = tuple(map(tuple, log_var))
+
+            headers[log_var_idx] = f'ln_{headers[log_var_idx]}'
+
+            if independent_var == var_log:
+                independent_var = headers[log_var_idx]
+
+    y_var = headers.index(independent_var)
+
+    y_values = datacols.pop(y_var)
+    x_values = datacols
+
+    y_name = headers.pop(y_var)
+
+    var_names = {'independent': headers,
+                 'dependent': y_name}
+
+    return x_values, y_values, var_names
