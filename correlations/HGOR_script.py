@@ -167,7 +167,23 @@ class PVTCORR_HGOR(PVTCORR):
             ln_Rs = (A * C[4] - ln_pb * (1 + B * C[12])) / (-A * C[5] + B * C[13] * ln_pb)
 
             Rs = np.exp(ln_Rs)
+        elif principle == "ace":
+            p_ln = np.log(pressure)
+            # ln_t = np.log(temperature)
+            gamma_s_ln = np.log(gas_gravity)
+            API_ln = np.log(api)
 
+            p_ln_Tr = 1.0137e+00 * p_ln ** 0 + -2.5799e+00 * p_ln ** 1 + 3.0007e-01 * p_ln ** 2
+            temperature_Tr = -2.0719e+00 * temperature ** 0 + 6.0473e-02 * temperature ** 1 + -5.9150e-04 * \
+                             temperature** 2 + 2.3511e-06 * temperature ** 3 + -3.2325e-09 * temperature ** 4
+            gamma_s_ln_Tr = 2.0152e-01 * gamma_s_ln ** 0 + 1.5466e+00 * gamma_s_ln ** 1 + 1.6991e+00 * gamma_s_ln ** 2
+            API_ln_Tr = 5.1571e+01 * API_ln ** 0 + -3.1676e+01 * API_ln ** 1 + 4.7622e+00 * API_ln ** 2
+
+            Sum_Tr = p_ln_Tr + temperature_Tr + gamma_s_ln_Tr + API_ln_Tr
+
+            Rgo_ln = 7.3867e+00 * Sum_Tr ** 0 + 7.5715e-01 * Sum_Tr ** 1 + 9.6050e-02 * Sum_Tr ** 2
+
+            Rs = np.exp(Rgo_ln)
         else:
             raise ValueError(f'Unknown method ({method}) for calculating Rs ')
 

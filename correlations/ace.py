@@ -3,18 +3,104 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.linear_model import LinearRegression
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
+import re
+
+
+def read_column_data_from_xlxs(fname, columns=None, independent_var=None, log=None, header=1, skiprows=None):
+    pvt_table = pd.read_excel(fname, header=header, usecols=columns, skiprows=skiprows)
+
+    # convert to log if asked
+    if log is not None:
+        for var_log in log:
+            pvt_table[var_log] = np.log(pvt_table[var_log])
+            new_column_name = f'{var_log}_ln'
+            pvt_table = pvt_table.rename(columns={var_log: new_column_name})
+
+            if independent_var == var_log:
+                independent_var = new_column_name
+
+    y_values = pvt_table[[independent_var]]
+    x_values = pvt_table.drop([independent_var], axis=1)
+
+    var_names = {'independent': x_values.columns.to_list(),
+                 'dependent': y_values.columns.to_list()}
+
+    y_values = y_values.values.flatten()
+    x_values = x_values.values.T.tolist()
+
+    return x_values, y_values, var_names
+
+
+def read_column_data_from_dat(fname, independent_var=None, log=None):
+    """
+    Read data from a simple text file.
+
+    Format should be just numbers.
+    First column is the dependent variable. others are independent.
+    Whitespace delimited.
+
+    Returns
+    -------
+    x_values : list
+        List of x columns
+    y_values : list
+        list of y values
+
+    """
+    datafile = open(fname)
+    datarows = []
+
+    for iline, line in enumerate(datafile):
+        if iline == 0:
+            headers = line.split()
+        else:
+            datarows.append([float(li) for li in line.split()])
+    datacols = list(zip(*datarows))
+
+    # convert to log if asked
+    if log is not None:
+        for var_log in log:
+            log_var_idx = headers.index(var_log)
+            log_var = np.log(datacols[log_var_idx])
+            datacols[log_var_idx] = log_var
+            # datacols[log_var_idx] = tuple(map(tuple, log_var))
+
+            headers[log_var_idx] = f'ln_{headers[log_var_idx]}'
+
+            if independent_var == var_log:
+                independent_var = headers[log_var_idx]
+
+    y_var = headers.index(independent_var)
+
+    y_values = datacols.pop(y_var)
+    x_values = datacols
+
+    y_name = headers.pop(y_var)
+
+    var_names = {'independent': headers,
+                 'dependent': y_name}
+
+    return x_values, y_values, var_names
 
 
 def postProcessing(ace_model, order_indep=2, order_dep=2, var_names=None, fname=None):
+    print()
     print('Coefficients for regression:')
+
     # Regression for independent variables
     str_names = []
-    coeff_ind = []
-    for i in range(len(ace_model.x)):
+    beta_independet = []
+
+    nVariables = len(ace_model.x)
+    if not isinstance(order_indep, list):
+        order_indep = [order_indep] * nVariables
+
+    for i in range(nVariables):
         x = np.asarray(ace_model.x[i]).reshape(-1, 1)
         y = ace_model.x_transforms[i].reshape(-1, 1)
 
-        poly_reg = PolynomialFeatures(degree=order_indep, include_bias=True)
+        poly_reg = PolynomialFeatures(degree=order_indep[i], include_bias=True)
         X_poly = poly_reg.fit_transform(X=x)
         # pol_reg = LinearRegression()
         # pol_reg.fit(X_poly, y)
@@ -26,9 +112,11 @@ def postProcessing(ace_model, order_indep=2, order_dep=2, var_names=None, fname=
         # print(f"\t {var_names['independent'][i]}_Tr = {beta.reshape(1, -1)}")
         var_name = var_names['independent'][i]
         str_names.append(f"\t {var_name}_Tr = "
-                         f"{' + '.join(map(str, [f'{beta_i[0]:.4e}*{var_name}^{j}' for j, beta_i in enumerate(beta)]))}")
+                         f""
+                         f""
+                         f"{' + '.join(map(str, [f'{beta_i[0]:.4e}*{var_name}**{j}' for j, beta_i in enumerate(beta)]))}")
         print(str_names[i])
-        coeff_ind.append(beta)
+        beta_independet.append(beta)
 
     # Regression for dependent variables
     x = np.asarray(ace_model.y_transform).reshape(-1, 1)
@@ -36,30 +124,38 @@ def postProcessing(ace_model, order_indep=2, order_dep=2, var_names=None, fname=
 
     poly_reg = PolynomialFeatures(degree=order_dep, include_bias=True)
     X_poly = poly_reg.fit_transform(X=x)
-    # pol_reg = LinearRegression()
-    # pol_reg.fit(X_poly, y)
-    # a = pol_reg.intercept_
-    # beta = pol_reg.coef_
 
-    beta = np.linalg.solve(X_poly.T @ X_poly, X_poly.T @ y)
+    beta_dep = np.linalg.solve(X_poly.T @ X_poly, X_poly.T @ y)
     var_name = var_names['dependent']
     str_names.append('')
-    str_names.append(f"\t {var_name} = "f""
-                     f"{' + '.join(map(str, [f'{beta_i[0]:.4e}*Sum_Tr^{j}' for j, beta_i in enumerate(beta)]))}")
+    str_names.append(f"\t {var_name[0]} = "f""
+                     f"{' + '.join(map(str, [f'{beta_i[0]:.4e}*Sum_Tr**{j}' for j, beta_i in enumerate(beta_dep)]))}")
     print(str_names[-1])
 
-    # print(f"\t {var_names['dependent']} = {beta.reshape(1, -1)}")
+    coefficients = {'independent': beta_independet,
+                    'dependent': beta_dep}
 
-    coeff_dep = beta
+    # str_names = [re.sub('\t ', '', str_name) for str_name in str_names]
+    full_var = []
+    for list_var in var_names.values():
+        for var_name in list_var:
+            full_var.append(var_name)
 
-    coefficients = {'independent': coeff_ind,
-                    'dependent': coeff_dep}
+    order = order_indep.copy()
+    order.append(order_dep)
 
     # save coefficient to txt
-    if fname is not None:
-        with open(fname, 'w') as output_file:
-            for line in str_names:
-                output_file.write(f"{line}\n")
+    betas = beta_independet
+    betas.append(beta_dep)
+    with open(fname, 'w') as f:
+        for i_beta, beta in enumerate(betas):
+            line = [f'{betai[0]:.4e}' for betai in beta]
+            line.append('\n')
+            f.write(f'{full_var[i_beta]}, {order[i_beta]}: ' + ', '.join(line))
+            # f.write(', '.join(beta))
+    # ace_model._write_columns(fname, beta_independet, [beta_dep])
+
+    # np.savetxt(fname, betas, fmt='%.4e', delimiter=', ')
 
     return coefficients
 
@@ -107,6 +203,24 @@ def plot_optimalRegression(ace_model, fname='ace_transforms.png', var_names=None
     else:
         plt.xlabel('Sum_Phi')
         plt.ylabel('theta')
+
+    # Regression for transformed variables
+    x = sumTR.reshape(-1, 1)
+    y = ace_model.y_transform
+
+    poly_reg = PolynomialFeatures(degree=1, include_bias=True)
+    X_poly = poly_reg.fit_transform(X=x)
+    beta_transformed = np.linalg.solve(X_poly.T @ X_poly, X_poly.T @ y)
+    print()
+    print(f'Transformed correlation: Theta = {beta_transformed[1]:.4e} Phi + {beta_transformed[0]:.4e}')
+
+    # Inserting 45 degree
+    x_min = np.amin(sumTR)
+    x_max = np.amax(sumTR)
+
+    x_45 = np.linspace(x_min, x_max)
+    plt.plot(x_45, x_45, '--', label='45 degrees')
+
     plt.tight_layout()
 
     if fname:

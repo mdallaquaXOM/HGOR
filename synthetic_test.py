@@ -21,11 +21,11 @@ pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
                     )
 
 properties = {'Rs': [
-    {'principle': 'vasquez_beggs', 'variation': 'original'},
-    {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
+    {'principle': 'ace', 'variation': 'None'},
     {'principle': 'exponential_rational_8', 'variation': 'optimized'},
-    {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
-    {'principle': 'exponential_rational_16', 'variation': 'michael'},
+    {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
+    # {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
+    # {'principle': 'exponential_rational_16', 'variation': 'michael'},
 ],
     'Bo': [
         {'principle': 'vasquez_beggs', 'variation': 'original'},
@@ -48,3 +48,5 @@ pvt_df = pvtc.compute_PVT_Correlations_v2(properties, rs_best_correlation={'prin
 for property_, correlations in pvt_df.items():
     plot_synthetic_data(correlations, inputs, name=property_,
                         jumpLog='exponential_rational_16_michael')
+    plot_synthetic_data(correlations, inputs, name=property_, jumpLog='exponential_rational_16_michael',
+                        hueplot='sample')

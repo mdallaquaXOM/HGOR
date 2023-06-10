@@ -6,6 +6,7 @@ import pandas as pd
 # New Correlations  - select JUST ONE !!!!!!
 properties = {
     'Rs':
+    # {'principle': 'ace', 'variation': 'mine'},
     # {'principle': 'vasquez_beggs', 'variation': 'original'},
     # {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
         {'principle': 'exponential_rational_8', 'variation': 'optimized'},
@@ -17,8 +18,8 @@ properties = {
     # {'principle': 'exponential_rational_15', 'variation': 'michael'}
     'muob':
     # {'principle': 'Beggs_and_Robinson', 'variation': 'original'},
-    {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
-        # {'principle': 'exponential_rational_15', 'variation': 'michael'}
+        {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
+    # {'principle': 'exponential_rational_15', 'variation': 'michael'}
 }
 
 # range of variables

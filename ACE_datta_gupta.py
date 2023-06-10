@@ -1,6 +1,5 @@
 from ace import model
-from correlations.ace import postProcessing, plot_transforms, plot_optimalRegression
-from correlations.utils import read_column_data_from_dat
+from correlations.ace import postProcessing, plot_transforms, plot_optimalRegression, read_column_data_from_dat
 
 # get x and y
 

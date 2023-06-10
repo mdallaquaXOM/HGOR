@@ -27,7 +27,7 @@ source_curve = 'PVT_Data'
 print('Vasquez and Beggs Optimization')
 C_new_VB = optimizeParameter(pvtc, opt_equation='Rs',
                              algorithm=3,
-                             metric_func='ADE',
+                             metric_func='LSE',
                              correlation_method={'principle': 'vasquez_beggs', 'variation': 'optimized'},
                              source=source_opt,
                              bounds=([1e-2, 1., 15., 40.], [8e-2, 2., 30, 50]),
@@ -36,7 +36,7 @@ print()
 print('Exponential Rational 8 Optimization')
 C_new_8 = optimizeParameter(pvtc, opt_equation='Rs',
                             algorithm=4,
-                            metric_func='ADE',
+                            metric_func='LSE',
                             correlation_method={'principle': 'exponential_rational_8', 'variation': 'optimized'},
                             source=source_opt,
                             x_start=np.array(C_exp_rat_8_blasingame))
@@ -52,7 +52,8 @@ C_new_8 = optimizeParameter(pvtc, opt_equation='Rs',
 
 new_parameters = {'Rs': {'vasquez_beggs': C_new_VB.x,
                          'exponential_rational_8': C_new_8.x,
-                         'exponential_rational_16': None
+                         'exponential_rational_16': None,
+                         'ace': None
                          }}
 
 # Saving values
@@ -61,13 +62,14 @@ pickle.dump(new_parameters, open(r"optimizedParam/opt_results.pickle", "wb"))
 
 
 properties = {'Rs': [
+    {'principle': 'ace', 'variation': 'mine'},
     {'principle': 'vasquez_beggs', 'variation': 'original'},
     {'principle': 'vasquez_beggs', 'variation': 'optimized'},
     # {'principle': 'vasquez_beggs', 'variation': 'meija'},
     {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
     {'principle': 'exponential_rational_8', 'variation': 'optimized'},
-    {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
-    {'principle': 'exponential_rational_16', 'variation': 'michael'},
+    # {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
+    # {'principle': 'exponential_rational_16', 'variation': 'michael'},
 ],
 }
 
