@@ -53,7 +53,8 @@ C_new_8 = optimizeParameter(pvtc, opt_equation='Rs',
 new_parameters = {'Rs': {'vasquez_beggs': C_new_VB.x,
                          'exponential_rational_8': C_new_8.x,
                          'exponential_rational_16': None,
-                         'ace': None
+                         'ace': None,
+                         'datadriven': None,
                          }}
 
 # Saving values
@@ -63,8 +64,10 @@ pickle.dump(new_parameters, open(r"optimizedParam/opt_results.pickle", "wb"))
 
 properties = {'Rs': [
     {'principle': 'ace', 'variation': 'mine'},
+    {'principle': 'datadriven', 'variation': 'ann'},
+    {'principle': 'datadriven', 'variation': 'randomforest'},
     {'principle': 'vasquez_beggs', 'variation': 'original'},
-    {'principle': 'vasquez_beggs', 'variation': 'optimized'},
+    # {'principle': 'vasquez_beggs', 'variation': 'optimized'},
     # {'principle': 'vasquez_beggs', 'variation': 'meija'},
     {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
     {'principle': 'exponential_rational_8', 'variation': 'optimized'},

@@ -6,6 +6,7 @@ from .LGOR_script import PVTCORR
 from .definitions import *
 import pickle
 from scipy.optimize import minimize, Bounds, differential_evolution
+import joblib
 
 
 class PVTCORR_HGOR(PVTCORR):
@@ -175,7 +176,7 @@ class PVTCORR_HGOR(PVTCORR):
 
             p_ln_Tr = 1.0137e+00 * p_ln ** 0 + -2.5799e+00 * p_ln ** 1 + 3.0007e-01 * p_ln ** 2
             temperature_Tr = -2.0719e+00 * temperature ** 0 + 6.0473e-02 * temperature ** 1 + -5.9150e-04 * \
-                             temperature** 2 + 2.3511e-06 * temperature ** 3 + -3.2325e-09 * temperature ** 4
+                             temperature ** 2 + 2.3511e-06 * temperature ** 3 + -3.2325e-09 * temperature ** 4
             gamma_s_ln_Tr = 2.0152e-01 * gamma_s_ln ** 0 + 1.5466e+00 * gamma_s_ln ** 1 + 1.6991e+00 * gamma_s_ln ** 2
             API_ln_Tr = 5.1571e+01 * API_ln ** 0 + -3.1676e+01 * API_ln ** 1 + 4.7622e+00 * API_ln ** 2
 
@@ -184,6 +185,30 @@ class PVTCORR_HGOR(PVTCORR):
             Rgo_ln = 7.3867e+00 * Sum_Tr ** 0 + 7.5715e-01 * Sum_Tr ** 1 + 9.6050e-02 * Sum_Tr ** 2
 
             Rs = np.exp(Rgo_ln)
+
+        elif principle == "datadriven":
+            # treat inputs: order and scaler
+            X = pd.DataFrame([pressure, temperature, gas_gravity, api]).T
+
+            scaler = joblib.load(r"machineLearning\scaler.pkl")
+
+            X = scaler['X'].fit_transform(X)
+
+            if variation == 'ann':
+                model = joblib.load(r"machineLearning\ann.pkl")
+
+            elif variation == 'randomforest':
+                model = joblib.load(r"machineLearning\random_forest.pkl")
+
+            else:
+                raise ValueError(f'Unknown method ({method}) for calculating Rs ')
+
+            # predict
+            rs_hat = model.predict(X)
+
+            # scale back output
+            Rs = scaler['Y'].inverse_transform(pd.DataFrame(rs_hat)).ravel()
+
         else:
             raise ValueError(f'Unknown method ({method}) for calculating Rs ')
 
