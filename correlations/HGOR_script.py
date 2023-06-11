@@ -189,10 +189,12 @@ class PVTCORR_HGOR(PVTCORR):
         elif principle == "datadriven":
             # treat inputs: order and scaler
             X = pd.DataFrame([pressure, temperature, gas_gravity, api]).T
+            X.columns = ['p_sat',	'temperature',	'gamma_s',	'API']
 
             scaler = joblib.load(r"machineLearning\scaler.pkl")
 
-            X = scaler['X'].fit_transform(X)
+            X_scaled = scaler['X'].transform(X)
+            X_scaled = pd.DataFrame(X_scaled, columns=X.columns)
 
             if variation == 'ann':
                 model = joblib.load(r"machineLearning\ann.pkl")
@@ -204,7 +206,7 @@ class PVTCORR_HGOR(PVTCORR):
                 raise ValueError(f'Unknown method ({method}) for calculating Rs ')
 
             # predict
-            rs_hat = model.predict(X)
+            rs_hat = model.predict(X_scaled)
 
             # scale back output
             Rs = scaler['Y'].inverse_transform(pd.DataFrame(rs_hat)).ravel()

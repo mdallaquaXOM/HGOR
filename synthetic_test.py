@@ -22,11 +22,13 @@ pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
 
 properties = {'Rs': [
     {'principle': 'ace', 'variation': 'None'},
+    {'principle': 'datadriven', 'variation': 'ann'},
+    {'principle': 'datadriven', 'variation': 'randomforest'},
     {'principle': 'exponential_rational_8', 'variation': 'optimized'},
     {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
     # {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
     # {'principle': 'exponential_rational_16', 'variation': 'michael'},
-],
+    ],
     'Bo': [
         {'principle': 'vasquez_beggs', 'variation': 'original'},
         {'principle': 'vasquez_beggs', 'variation': 'rs_update'},
