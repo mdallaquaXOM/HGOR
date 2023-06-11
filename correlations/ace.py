@@ -118,6 +118,11 @@ def postProcessing(ace_model, order_indep=2, order_dep=2, var_names=None, fname=
         print(str_names[i])
         beta_independet.append(beta)
 
+    # insert sum of Transforms
+    str_names.append('')
+    str_names.append('Sum_Tr = '
+                     f"{' + '.join(map(str, [f'{var_name}_Tr' for var_name in var_names['independent']]))}")
+
     # Regression for dependent variables
     x = np.asarray(ace_model.y_transform).reshape(-1, 1)
     y = ace_model.y.reshape(-1, 1)
@@ -135,27 +140,27 @@ def postProcessing(ace_model, order_indep=2, order_dep=2, var_names=None, fname=
     coefficients = {'independent': beta_independet,
                     'dependent': beta_dep}
 
-    # str_names = [re.sub('\t ', '', str_name) for str_name in str_names]
-    full_var = []
-    for list_var in var_names.values():
-        for var_name in list_var:
-            full_var.append(var_name)
-
-    order = order_indep.copy()
-    order.append(order_dep)
-
-    # save coefficient to txt
-    betas = beta_independet
-    betas.append(beta_dep)
+    str_names = [re.sub('\t ', '', str_name) for str_name in str_names]
     with open(fname, 'w') as f:
-        for i_beta, beta in enumerate(betas):
-            line = [f'{betai[0]:.4e}' for betai in beta]
-            line.append('\n')
-            f.write(f'{full_var[i_beta]}, {order[i_beta]}: ' + ', '.join(line))
-            # f.write(', '.join(beta))
-    # ace_model._write_columns(fname, beta_independet, [beta_dep])
+        for str_name in str_names:
+            f.write(f'{str_name}\n')
 
-    # np.savetxt(fname, betas, fmt='%.4e', delimiter=', ')
+    # full_var = []
+    # for list_var in var_names.values():
+    #     for var_name in list_var:
+    #         full_var.append(var_name)
+    #
+    # order = order_indep.copy()
+    # order.append(order_dep)
+    #
+    # # save coefficient to txt
+    # betas = beta_independet
+    # betas.append(beta_dep)
+    # with open(fname, 'w') as f:
+    #     for i_beta, beta in enumerate(betas):
+    #         line = [f'{betai[0]:.4e}' for betai in beta]
+    #         line.append('\n')
+    #         f.write(f'{full_var[i_beta]}, {order[i_beta]}: ' + ', '.join(line))
 
     return coefficients
 
