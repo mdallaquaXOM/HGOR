@@ -275,8 +275,8 @@ def metrics(measured, calculated, columns=None):
     #           most likely indicates poor quality data.
 
     ADE = np.sum(np.abs(ln_measured - ln_calculated))
-    LSE = np.sum((ln_measured - ln_calculated)**2)
-    RMSE = np.square(np.sum(measured - calculated)**2 / n_samples)
+    LSE = np.sum((ln_measured - ln_calculated) ** 2)
+    RMSE = np.square(np.sum(measured - calculated) ** 2 / n_samples)
 
     ARE = np.sum((measured - calculated) / measured) * 100 / n_samples
     # AARE = np.sum(np.abs((measured - calculated) / calculated)) * 100 / n_samples # Blasingame paper
@@ -287,6 +287,7 @@ def metrics(measured, calculated, columns=None):
     return metrics_
 
 
+# todo: consider to delete this method
 def sampling_old(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
                  random_state=123, n_psat=50, bounds=None):
     keys = list(bounds.keys())
@@ -329,7 +330,6 @@ def sampling_old(sampling_type='lhs', nVariables=2, n_samples=100, criterion=Non
     return df, dfX
 
 
-# todo: merge sampling methods
 def sampling(bounds, sampling_type='lhs', n_samples=100, criterion=None,
              random_state=123,
              psat_bounds=None, n_psat=50, ):

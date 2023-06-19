@@ -484,6 +484,7 @@ class PVTCORR_HGOR(PVTCORR):
 
         return comparison_df, metrics_df
 
+    # todo: consider to delete this method
     def compute_PVT_Correlations_metrics_delete(self, properties, rs_best_correlation=None,
                                                 new_parameters=None, source=None):
 
