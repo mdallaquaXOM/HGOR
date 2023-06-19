@@ -159,6 +159,7 @@ class PVTCORR:
 
         error = self.LARGE
         iter = 0
+        # Sutton
         Ppc = 756.8 - 131.0 * gas_gravity - 3.60 * (gas_gravity ** 2.0)
         Tpc = 169.2 + 349.5 * gas_gravity - 74.0 * (gas_gravity ** 2.0)
         Tpr = (temperature + 459.67) / Tpc

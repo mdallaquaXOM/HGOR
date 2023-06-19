@@ -275,13 +275,14 @@ def metrics(measured, calculated, columns=None):
     #           most likely indicates poor quality data.
 
     ADE = np.sum(np.abs(ln_measured - ln_calculated))
-    LSE = np.sum(np.power(ln_measured - ln_calculated, 2))
+    LSE = np.sum((ln_measured - ln_calculated)**2)
+    RMSE = np.square(np.sum(measured - calculated)**2 / n_samples)
 
     ARE = np.sum((measured - calculated) / measured) * 100 / n_samples
     # AARE = np.sum(np.abs((measured - calculated) / calculated)) * 100 / n_samples # Blasingame paper
     AARE = np.sum(np.abs((measured - calculated) / measured)) * 100 / n_samples
 
-    metrics_ = {'ADE': ADE, 'LSE': LSE, 'ARE': ARE, 'AARE': AARE}
+    metrics_ = {'LSE': LSE, 'ARE': ARE, 'ADE': ADE, 'AARE': AARE, 'RMSE': RMSE}
 
     return metrics_
 
@@ -467,5 +468,3 @@ def metric2df(dict_, errorObj=None):
         df_out.insert(0, 'optError', errorObj)
 
     return df_out
-
-

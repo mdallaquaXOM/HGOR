@@ -59,7 +59,7 @@ class PVTCORR_HGOR(PVTCORR):
 
     @staticmethod
     def _computeRsAtSatPress(api, temperature,
-                             pressure, gas_gravity, method=None,
+                             pressure, gas_gravity_c=None,gas_gravity_s=None , method=None,
                              parameters=None):
         # standard values
         if method is None:
@@ -94,7 +94,7 @@ class PVTCORR_HGOR(PVTCORR):
                 a = pressure ** C3
                 b = - (C2 * api) / (temperature + 459.67)
 
-                Rs = (gas_gravity * a * (10 ** b)) / C1
+                Rs = (gas_gravity_c * a * (10 ** b)) / C1
 
                 return Rs
 
@@ -109,7 +109,7 @@ class PVTCORR_HGOR(PVTCORR):
             a = pressure ** C2
             b = np.exp((C3 * api) / (temperature + 459.67))
 
-            Rs = C1 * a * gas_gravity * b
+            Rs = C1 * a * gas_gravity_c * b
 
         elif principle == "exponential_rational_8":
             if variation == 'optimized':
@@ -130,7 +130,7 @@ class PVTCORR_HGOR(PVTCORR):
 
             a = C[0] + C[1] * np.log(temperature)
             b = C[2] + C[3] * np.log(api)
-            d = C[6] + C[7] * np.log(gas_gravity)
+            d = C[6] + C[7] * np.log(gas_gravity_c)
 
             K = (a / np.log(pressure) - 1.) * ((b * d) ** (-1))
 
@@ -149,7 +149,7 @@ class PVTCORR_HGOR(PVTCORR):
 
             ln_t = np.log(temperature)
             ln_api = np.log(api)
-            ln_gas_gravity = np.log(gas_gravity)
+            ln_gas_gravity = np.log(gas_gravity_c)
 
             a = C[0] + C[1] * ln_t
             e = C[8] + C[9] * ln_t
@@ -171,7 +171,7 @@ class PVTCORR_HGOR(PVTCORR):
         elif principle == "ace":
             p_ln = np.log(pressure)
             # ln_t = np.log(temperature)
-            gamma_s_ln = np.log(gas_gravity)
+            gamma_s_ln = np.log(gas_gravity_c)
             API_ln = np.log(api)
 
             p_ln_Tr = 1.0137e+00 * p_ln ** 0 + -2.5799e+00 * p_ln ** 1 + 3.0007e-01 * p_ln ** 2
@@ -188,7 +188,7 @@ class PVTCORR_HGOR(PVTCORR):
 
         elif principle == "datadriven":
             # treat inputs: order and scaler
-            X = pd.DataFrame([pressure, temperature, gas_gravity, api]).T
+            X = pd.DataFrame([pressure, temperature, gas_gravity_s, api]).T
             X.columns = ['p_sat',	'temperature',	'gamma_s',	'API']
 
             scaler = joblib.load(r"machineLearning\scaler.pkl")
@@ -497,6 +497,7 @@ class PVTCORR_HGOR(PVTCORR):
         # recover inputs
         api = df['API']
         gas_gravity = df['gamma_c']
+        gas_gravity_sp = df['gamma_s']
         temperature = df['temperature']
         p_sat = np.array(df['p'])
         rgo = np.array(df['Rgo'])
@@ -535,7 +536,9 @@ class PVTCORR_HGOR(PVTCORR):
 
                 # function to call will depend on the property_
                 if property_ == 'Rs':
-                    temp = self._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
+                    temp = self._computeRsAtSatPress(api, temperature, p_sat,
+                                                     gas_gravity_c = gas_gravity,
+                                                     gas_gravity_s = gas_gravity_sp,
                                                      method=correlation,
                                                      parameters=newparameter_prop_correl)
                 elif property_ == 'Bo':
