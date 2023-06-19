@@ -1,17 +1,23 @@
 import numpy as np
-from correlations.utils import sampling
+from correlations.utils import sampling_old, sampling
 from correlations.HGOR_script import PVTCORR_HGOR
 from correlations.utils import plot_synthetic_data
 
 # range of variables
-bounds = {'p': [100., 3500.],
-          'API': [38, 55.],
+p_bounds = [100., 3500.]
+
+bounds = {'API': [38, 55.],
           'gamma_s': [0.65, 1.],
           'temperature': [130, 300],
           }
 
 # samples of API, Specific Gravity and Temp
-inputs, _ = sampling(sampling_type='lhs', nVariables=3, n_samples=10, n_psat=100,
+# inputs, _ = sampling_old(sampling_type='lhs', nVariables=3, n_samples=10, n_psat=100,
+#                          random_state=123, bounds=bounds)
+
+# samples of API, Specific Gravity and Temp
+inputs, _ = sampling(sampling_type='lhs', n_samples=10,
+                     psat_bounds=p_bounds, n_psat=15,
                      random_state=123, bounds=bounds)
 
 # create class
@@ -28,7 +34,7 @@ properties = {'Rs': [
     {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
     # {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
     # {'principle': 'exponential_rational_16', 'variation': 'michael'},
-    ],
+],
     'Bo': [
         {'principle': 'vasquez_beggs', 'variation': 'original'},
         {'principle': 'vasquez_beggs', 'variation': 'rs_update'},
@@ -40,8 +46,8 @@ properties = {'Rs': [
         {'principle': 'exponential_rational_15', 'variation': 'michael'}],
 }
 
-pvt_df = pvtc.compute_PVT_Correlations_v2(properties, rs_best_correlation={'principle': 'exponential_rational_8',
-                                                                           'variation': 'optimized'})
+pvt_df = pvtc.compute_PVT_Correlations(properties, rs_best_correlation={'principle': 'exponential_rational_8',
+                                                                        'variation': 'optimized'})
 #
 # for property_, correlations in pvt_df.items():
 #     plot_synthetic_data(correlations, inputs, name=property_,

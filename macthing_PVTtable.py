@@ -1,6 +1,6 @@
 from correlations.HGOR_script import PVTCORR_HGOR
 
-from correlations.utils import sampling, printInputValues, plot_comparePVT, concatDF
+from correlations.utils import sampling_old, printInputValues, plot_comparePVT, concatDF
 from correlations.HGOR_script import PVTCORR_HGOR
 
 # New Correlations  - select JUST ONE !!!!!!

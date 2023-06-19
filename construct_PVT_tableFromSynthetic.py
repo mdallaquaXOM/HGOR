@@ -1,4 +1,4 @@
-from correlations.utils import sampling
+from correlations.utils import sampling_old
 from correlations.HGOR_script import PVTCORR_HGOR
 from correlations.utils import EDA_seaborn, EDA_plotly, plot_comparePVT, metrics, metric2df
 import pandas as pd
@@ -35,8 +35,8 @@ bounds = {'p': [100., 4900.],
 n_samples = 30
 
 # samples of API, Specific Gravity and Temp
-inputs, sampled_values = sampling(sampling_type='lhs', nVariables=3, n_samples=n_samples, n_psat=50,
-                                  random_state=123, bounds=bounds)
+inputs, sampled_values = sampling_old(sampling_type='lhs', nVariables=3, n_samples=n_samples, n_psat=50,
+                                      random_state=123, bounds=bounds)
 
 errors = []
 for n_sample in range(n_samples):

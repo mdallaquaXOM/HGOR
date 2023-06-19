@@ -1,4 +1,4 @@
-from correlations.utils import sampling
+from correlations.utils import sampling_old
 from correlations.HGOR_script import PVTCORR_HGOR
 from correlations.utils import EDA_seaborn, EDA_plotly, plot_comparePVT
 

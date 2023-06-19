@@ -25,9 +25,9 @@ bounds = {'temperature': [75, 225],
 # 'Rvi': [6.66667E-05, 0.00025]
 
 # samples of API, Specific Gravity and Temp
-inputs, _ = sampling2(sampling_type='lhs', n_samples=5 * 10,
-                      psat_bounds=p_bounds, n_psat=15,
-                      random_state=123, bounds=bounds)
+inputs, _ = sampling(sampling_type='lhs', n_samples=5 * 10,
+                     psat_bounds=p_bounds, n_psat=15,
+                     random_state=123, bounds=bounds)
 
 # New Correlations
 properties = {
@@ -72,4 +72,3 @@ for property_, correlations in pvt_df.items():
     plot_synthetic_data(correlations, input_table, name=property_)
 
     plot_synthetic_data(correlations, input_table, name=property_, hueplot='sample')
-

@@ -77,10 +77,10 @@ properties = {'Rs': [
 }
 
 # Calculate RS
-pvt_prop, pvt_metrics = pvtc.compute_PVT_Correlations(properties,
-                                                      new_parameters=new_parameters,
-                                                      source=source_curve,
-                                                      rs_best_correlation={'principle': 'exponential_rational_8',
+pvt_prop, pvt_metrics = pvtc.compute_PVT_Correlations_metrics_delete(properties,
+                                                                     new_parameters=new_parameters,
+                                                                     source=source_curve,
+                                                                     rs_best_correlation={'principle': 'exponential_rational_8',
                                                                            'variation': 'optimized'})
 
 # plots

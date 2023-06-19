@@ -59,7 +59,7 @@ class PVTCORR_HGOR(PVTCORR):
 
     @staticmethod
     def _computeRsAtSatPress(api, temperature,
-                             pressure, gas_gravity_c=None,gas_gravity_s=None , method=None,
+                             pressure, gas_gravity_c=None, gas_gravity_s=None, method=None,
                              parameters=None):
         # standard values
         if method is None:
@@ -189,7 +189,7 @@ class PVTCORR_HGOR(PVTCORR):
         elif principle == "datadriven":
             # treat inputs: order and scaler
             X = pd.DataFrame([pressure, temperature, gas_gravity_s, api]).T
-            X.columns = ['p_sat',	'temperature',	'gamma_s',	'API']
+            X.columns = ['p_sat', 'temperature', 'gamma_s', 'API']
 
             scaler = joblib.load(r"machineLearning\scaler.pkl")
 
@@ -484,8 +484,8 @@ class PVTCORR_HGOR(PVTCORR):
 
         return comparison_df, metrics_df
 
-    def compute_PVT_Correlations(self, properties, rs_best_correlation=None,
-                                 new_parameters=None, source=None):
+    def compute_PVT_Correlations_metrics_delete(self, properties, rs_best_correlation=None,
+                                                new_parameters=None, source=None):
 
         df = self.pvt_table
 
@@ -537,8 +537,8 @@ class PVTCORR_HGOR(PVTCORR):
                 # function to call will depend on the property_
                 if property_ == 'Rs':
                     temp = self._computeRsAtSatPress(api, temperature, p_sat,
-                                                     gas_gravity_c = gas_gravity,
-                                                     gas_gravity_s = gas_gravity_sp,
+                                                     gas_gravity_c=gas_gravity,
+                                                     gas_gravity_s=gas_gravity_sp,
                                                      method=correlation,
                                                      parameters=newparameter_prop_correl)
                 elif property_ == 'Bo':
@@ -577,8 +577,8 @@ class PVTCORR_HGOR(PVTCORR):
 
         return comparison_star, metrics_star
 
-    def compute_PVT_Correlations_v2(self, properties, rs_best_correlation=None,
-                                    new_parameters=None, source=None):
+    def compute_PVT_Correlations(self, properties, rs_best_correlation=None,
+                                 new_parameters=None, source=None):
 
         df = self.pvt_table
 
@@ -590,6 +590,7 @@ class PVTCORR_HGOR(PVTCORR):
         # recover inputs
         api = df['API']
         gas_gravity = df['gamma_c']
+        gas_gravity_sp = df['gamma_s']
         temperature = df['temperature']
         p_sat = np.array(df['p'])
 
@@ -614,7 +615,9 @@ class PVTCORR_HGOR(PVTCORR):
 
                 # function to call will depend on the property_
                 if property_ == 'rs':
-                    temp = self._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
+                    temp = self._computeRsAtSatPress(api, temperature, p_sat,
+                                                     gas_gravity_c=gas_gravity,
+                                                     gas_gravity_s=gas_gravity_sp,
                                                      method=correlation,
                                                      parameters=newparameter_prop_correl)
                 elif property_ == 'bo':

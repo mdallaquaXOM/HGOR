@@ -16,9 +16,9 @@ bounds = {'temperature': [75, 225],
 # 'Rvi': [6.66667E-05, 0.00025]
 
 # samples of API, Specific Gravity and Temp
-inputs, _ = sampling2(sampling_type='lhs', n_samples=len(bounds) * 10,
-                      psat_bounds=p_bounds, n_psat=15,
-                      random_state=123, bounds=bounds)
+inputs, _ = sampling(sampling_type='lhs', n_samples=len(bounds) * 10,
+                     psat_bounds=p_bounds, n_psat=15,
+                     random_state=123, bounds=bounds)
 
 # New Correlations
 properties = {
@@ -55,7 +55,7 @@ pvtc = PVTCORR_HGOR(sat_pressure=None,
                     correct_specific_gravity=False)
 # NEW Properties
 pvtc.pvt_table['gamma_c'] = pvtc.pvt_table['gamma_s']
-pvt_df = pvtc.compute_PVT_Correlations_v2(properties)
+pvt_df = pvtc.compute_PVT_Correlations(properties)
 
 input_table = pvtc.pvt_table
 
@@ -63,4 +63,3 @@ for property_, correlations in pvt_df.items():
     plot_synthetic_data(correlations, input_table, name=property_)
 
     plot_synthetic_data(correlations, input_table, name=property_, hueplot='sample')
-

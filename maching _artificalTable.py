@@ -1,6 +1,6 @@
 import pandas as pd
 
-from correlations.utils import sampling, printInputValues, plot_comparePVT, metrics, metric2df, relativeErrorforMatch
+from correlations.utils import sampling_old, printInputValues, plot_comparePVT, metrics, metric2df, relativeErrorforMatch
 from correlations.HGOR_script import PVTCORR_HGOR
 
 # New Correlations  - select JUST ONE !!!!!!
@@ -35,8 +35,8 @@ bounds = {'p': [100., 4900.],
 n_samples = 30
 
 # samples of API, Specific Gravity and Temp
-inputs, input_sampled = sampling(sampling_type='lhs', nVariables=3, n_samples=n_samples, n_psat=15,
-                                 random_state=123, bounds=bounds)
+inputs, input_sampled = sampling_old(sampling_type='lhs', nVariables=3, n_samples=n_samples, n_psat=15,
+                                     random_state=123, bounds=bounds)
 
 # Optimizer definitions
 # ranges = [(30, 55), (0.65, 1.2), (130, 300)]

@@ -1,7 +1,6 @@
-from correlations.utils import sampling
+from correlations.utils import sampling_old
 from correlations.HGOR_script import PVTCORR_HGOR
 from correlations.utils import EDA_seaborn, EDA_plotly, plot_comparePVT
-
 
 # New Correlations  - select JUST ONE !!!!!!
 properties = {
@@ -17,14 +16,13 @@ properties = {
     # {'principle': 'exponential_rational_15', 'variation': 'michael'}
     'muob':
     # {'principle': 'Beggs_and_Robinson', 'variation': 'original'},
-    {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
-        # {'principle': 'exponential_rational_15', 'variation': 'michael'}
+        {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
+    # {'principle': 'exponential_rational_15', 'variation': 'michael'}
 }
 
 Tsp = 14.7
 Psp = 60
 hgor_treshold = 2000
-
 
 # range of variables
 bounds = {'p': [100., 3500.],
@@ -34,8 +32,8 @@ bounds = {'p': [100., 3500.],
           }
 
 # samples of API, Specific Gravity and Temp
-inputs, _ = sampling(sampling_type='lhs', nVariables=3, n_samples=1, n_psat=50,
-                     random_state=123, bounds=bounds)
+inputs, _ = sampling_old(sampling_type='lhs', nVariables=3, n_samples=1, n_psat=50,
+                         random_state=123, bounds=bounds)
 
 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 #              overwrite inputs
@@ -49,7 +47,6 @@ pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=Tsp, Psp=Psp,
                     hgor=hgor_treshold,
                     data=inputs
                     )
-
 
 # Old Properties
 pvt_old = pvtc.construct_PVT_table_old()

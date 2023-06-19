@@ -287,8 +287,8 @@ def metrics(measured, calculated, columns=None):
     return metrics_
 
 
-def sampling(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
-             random_state=123, n_psat=50, bounds=None):
+def sampling_old(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
+                 random_state=123, n_psat=50, bounds=None):
     keys = list(bounds.keys())
     keys_expanded = keys + ['sample']
 
@@ -330,9 +330,9 @@ def sampling(sampling_type='lhs', nVariables=2, n_samples=100, criterion=None,
 
 
 # todo: merge sampling methods
-def sampling2(bounds, sampling_type='lhs', n_samples=100, criterion=None,
-              random_state=123,
-              psat_bounds=None, n_psat=50, ):
+def sampling(bounds, sampling_type='lhs', n_samples=100, criterion=None,
+             random_state=123,
+             psat_bounds=None, n_psat=50, ):
     nVariables = len(bounds)
 
     keys = list(bounds.keys())

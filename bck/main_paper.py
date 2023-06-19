@@ -23,7 +23,7 @@ C_new_vasquez = pvtc.optimizeParameter(api, gas_gravity, temperature)
 new_parameter = {'Vasquez_Beggs':C_new_vasquez.x}
 
 # Calculate RS
-Rs = pvtc.compute_PVT_Correlations(api, gas_gravity, temperature, new_parameter)
+Rs = pvtc.compute_PVT_Correlations_metrics_delete(api, gas_gravity, temperature, new_parameter)
 
 df_Rs = pd.DataFrame(Rs)
 df_Rs['HGOR'] = pvtc.pvt_table['HGOR']
