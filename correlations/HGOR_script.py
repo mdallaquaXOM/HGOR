@@ -13,6 +13,7 @@ class PVTCORR_HGOR(PVTCORR):
     def __init__(self, path='', files='', data=None, columns=None, hgor=2000, dataAugmentation=None, header=1,
                  inputData=True, skiprows=None, separator_stages=3, Psp=None, Psp2=None, Tsp=None, Tsp2=None,
                  correct_specific_gravity=True,
+                 columnsNames=None, categorical_columns=None,
                  **kwargs):
 
         super().__init__(Tsp=Tsp, Psp=Psp, **kwargs)
@@ -30,15 +31,41 @@ class PVTCORR_HGOR(PVTCORR):
         else:
             pvt_table = data
 
-        # Calculate corrected gas gravity (?)
+        # columns name
+        if columnsNames is not None:
+            pvt_table.columns = columnsNames + ['source']
 
+        # Cleaning data
+        pvt_table = pvt_table.replace('-', np.nan)
+        pvt_table = pvt_table.replace('nan', np.nan)
+
+        # drop row if Rs (or Rgo) is nan
+        pvt_table = pvt_table[pvt_table.Rgo.notnull()]
+
+        # Fixing datatype
+        if categorical_columns is not None:
+            categorical_columns = categorical_columns + ['source']
+            for categorical_column in categorical_columns:
+                pvt_table[categorical_column] = pvt_table[categorical_column].astype('category')
+
+            for column in pvt_table.columns:
+                if column not in categorical_columns:
+                    pvt_table[column] = pvt_table[column].astype(np.float64)
+
+        # Calculate corrected gas gravity (?)
         if inputData:
             if correct_specific_gravity:
                 if 'gamma_c' not in pvt_table.columns:
                     api = pvt_table['API']
                     gas_gravity = pvt_table['gamma_s']
 
-                    gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, api)
+                    if 'sep_T1' in pvt_table.columns:
+                        gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, api,
+                                                                                Tsp=pvt_table['sep_T1'],
+                                                                                Psp=pvt_table['sep_P1'],
+                                                                                )
+                    else:
+                        gamma_gs = self._computeGasGravityAtSeparatorConditions(gas_gravity, api)
                     pvt_table['gamma_c'] = gamma_gs
 
             # Assign flag for HGOR
@@ -51,10 +78,10 @@ class PVTCORR_HGOR(PVTCORR):
                     for i in range(dataAugmentation):
                         pvt_table = pd.concat([pvt_table, hgor])
 
-        self.separator_stages = separator_stages
-        self.Psp1 = Psp
-        self.Psp2 = Psp2
+            if 'Rog' in pvt_table:
+                pvt_table['Rog'] = pvt_table['Rog'] * 1.e6
 
+        self.separator_stages = separator_stages
         self.pvt_table = pvt_table
 
     @staticmethod
@@ -434,7 +461,7 @@ class PVTCORR_HGOR(PVTCORR):
         api = df['API']
         gas_gravity = df['gamma_c']
         temperature = df['temperature']
-        p_sat = np.array(df['p'])
+        p_sat = np.array(df['psat'])
         rs = np.array(df['Rgo'])
 
         # New correlations
@@ -500,7 +527,7 @@ class PVTCORR_HGOR(PVTCORR):
         gas_gravity = df['gamma_c']
         gas_gravity_sp = df['gamma_s']
         temperature = df['temperature']
-        p_sat = np.array(df['p'])
+        p_sat = np.array(df['psat'])
         rgo = np.array(df['Rgo'])
         Bo = np.array(df['Bo'])
         visc_o = np.array(df['visc_o'])
@@ -593,7 +620,7 @@ class PVTCORR_HGOR(PVTCORR):
         gas_gravity = df['gamma_c']
         gas_gravity_sp = df['gamma_s']
         temperature = df['temperature']
-        p_sat = np.array(df['p'])
+        p_sat = np.array(df['psat'])
 
         # New correlations
         comparison_star = {}
@@ -662,7 +689,7 @@ class PVTCORR_HGOR(PVTCORR):
         if source is not None:
             mask = df['source'] == source
             df = df[mask].reset_index(drop=True)
-        p_sat = np.array(df['p'])
+        p_sat = np.array(df['psat'])
 
         # filter by source
         if inputValues is None:
@@ -692,6 +719,10 @@ class PVTCORR_HGOR(PVTCORR):
                                               method=properties['muob'],
                                               Rso=rgo_c)
 
+        rog_c = self._computeCondensateGasRate(api=api, temperature=temperature, pressure=p_sat,
+                                               gas_gravity=gas_gravity_s, method=properties['CGR'],
+                                               )
+
         # Old Correlations Below
         # rgo_c = []
         # bo_c = []
@@ -715,6 +746,7 @@ class PVTCORR_HGOR(PVTCORR):
 
         pvt_dic = {
             'Rgo': rgo_c,
+            'Rog': rog_c,
             'Bo': bo_c,
             'Bg': bg_c,
             'Bw': bw_c,
@@ -740,7 +772,10 @@ class PVTCORR_HGOR(PVTCORR):
         api = df['API']
         gas_gravity_s = df['gamma_s']
         temperature = df['temperature']
-        p_sat = np.array(df['p'])
+        p_sat = np.array(df['psat'])
+
+        Tsp = np.array(df['sep_T1'])
+        Psp = np.array(df['sep_P1'])
 
         # recover outputs
         # rgo = np.array(df['Rgo'])
@@ -759,8 +794,11 @@ class PVTCORR_HGOR(PVTCORR):
         self.sat_pressure = np.max(p_sat)
 
         # Old Correlations Below
-        for p_sat_i, temperature_i, gas_gravity_i, api_i \
-                in zip(p_sat, temperature, gas_gravity_s, api):
+        for i, (p_sat_i, temperature_i, gas_gravity_i, api_i, Psp_i, Tsp_i) \
+                in enumerate(zip(p_sat, temperature, gas_gravity_s, api, Psp, Tsp)):
+            self.Psp = Psp_i
+            self.Tsp = Tsp_i
+
             rgo_c.append(super()._computeSolutionGasOilRatio(api_i, temperature_i, p_sat_i, gas_gravity_i))
             bo_c.append(super()._computeLiveOilFVF(api_i, temperature_i, p_sat_i, gas_gravity_i))
             bg_c.append(super().computeDryGasFVF(p_sat_i, temperature_i, gas_gravity_i))
@@ -906,7 +944,7 @@ class PVTCORR_HGOR(PVTCORR):
             mask = df['source'] == source
             df = df[mask].reset_index(drop=True)
 
-        p_sat = np.array(df['p'])
+        p_sat = np.array(df['psat'])
         temperature = np.array(df['temperature'])
         api = np.array(df['API'])
         specific_gravity_sp1 = np.array(df['gamma_sp1'])
@@ -950,3 +988,16 @@ class PVTCORR_HGOR(PVTCORR):
             comparison_star[property_] = comparison_df
 
         return comparison_star
+
+    def _computeGasGravityAtSeparatorConditions(self, Gamma, API, Tsp=None, Psp=None):
+        # what is this?
+        # page 60 of https://ntnuopen.ntnu.no/ntnu-xmlui/bitstream/handle/11250/2397728/15177_FULLTEXT.pdf?sequence=1
+        # page 61 of Chen(2006) - Computational Methods for Multiphase Flows in Porous Media
+        if Tsp is None:
+            Tsp = self.Tsp
+
+        if Psp is None:
+            Psp = self.Psp
+
+        Gamma_gs = Gamma * (1.0 + 5.912e-5 * API * Tsp * np.log10(Psp / 114.7))
+        return Gamma_gs

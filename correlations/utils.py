@@ -164,7 +164,7 @@ def plot_properties(df, measured, calculated, title=None, metrics_df=None, prope
     fig.show()
 
 
-def plot_comparePVT(inputs, df_old, df_new, df_opt=None, x_axis='p', title='', path='', properties=None):
+def plot_comparePVT(inputs, df_old, df_new, df_opt=None, x_axis='psat', title='', path='', properties=None):
     if properties is None:
         properties = list(df_new.columns)
 
@@ -184,12 +184,13 @@ def plot_comparePVT(inputs, df_old, df_new, df_opt=None, x_axis='p', title='', p
     for i_scale, scale in enumerate(['linear', 'log'], 1):
         for i_prop, property_i in enumerate(properties, 1):
 
-            fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_old[property_i],
-                                     name=legends[1],
-                                     marker={'color': "red", 'symbol': 'square'},
-                                     legendgroup='group2', showlegend=showlegend),
-                          row=i_scale, col=i_prop
-                          )
+            if property_i in df_old.columns:
+                fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_old[property_i],
+                                         name=legends[1],
+                                         marker={'color': "red", 'symbol': 'square'},
+                                         legendgroup='group2', showlegend=showlegend),
+                              row=i_scale, col=i_prop
+                              )
 
             fig.add_trace(go.Scatter(mode="markers", x=inputs[x_axis], y=df_new[property_i],
                                      name=legends[2],
