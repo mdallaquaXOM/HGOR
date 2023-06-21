@@ -6,7 +6,7 @@ from correlations.definitions import *
 
 pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
                     hgor=2000,
-                    columns=['temperature', 'API', 'gamma_s', 'Rgo', 'p', 'Bo', 'visc_o'],
+                    columns=['temperature', 'API', 'gamma_s', 'Rgo', 'psat', 'Bo', 'visc_o'],
                     path='data',
                     files=['PVT_Data', 'PVT_paper'],
                     dataAugmentation=1)
@@ -80,8 +80,9 @@ properties = {'Rs': [
 pvt_prop, pvt_metrics = pvtc.compute_PVT_Correlations_metrics_delete(properties,
                                                                      new_parameters=new_parameters,
                                                                      source=source_curve,
-                                                                     rs_best_correlation={'principle': 'exponential_rational_8',
-                                                                           'variation': 'optimized'})
+                                                                     rs_best_correlation={
+                                                                         'principle': 'exponential_rational_8',
+                                                                         'variation': 'optimized'})
 
 # plots
 # colums2plot = ['vasquez_beggs_original',

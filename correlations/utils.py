@@ -277,7 +277,7 @@ def metrics(measured, calculated, columns=None):
 
     ADE = np.sum(np.abs(ln_measured - ln_calculated))
     LSE = np.sum((ln_measured - ln_calculated) ** 2)
-    RMSE = np.square(np.sum(measured - calculated) ** 2 / n_samples)
+    RMSE = np.square(np.sum((measured - calculated) ** 2) / n_samples)
 
     ARE = np.sum((measured - calculated) / measured) * 100 / n_samples
     # AARE = np.sum(np.abs((measured - calculated) / calculated)) * 100 / n_samples # Blasingame paper
@@ -381,7 +381,7 @@ def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=
 
     for j, axes_type in enumerate(['linear', 'log']):
         for i, correlation_name in enumerate(correlations_df):
-            data = input_df[['p', 'sample']]
+            data = input_df[['psat', 'sample']]
             data[correlation_name] = correlations_df[correlation_name]
             if (j == 1) and (i == nplots - 2):
                 showlegend = True
@@ -469,3 +469,66 @@ def metric2df(dict_, errorObj=None):
         df_out.insert(0, 'optError', errorObj)
 
     return df_out
+
+
+def excel_columns_map():
+    # properties and columns
+    knobs = dict(psat=63,
+                 API=62,
+                 gamma_s=81,  # column 81(msst?) or 100 or 99
+                 temperature=101,
+                 sep_P1=82,
+                 sep_T1=83,
+                 sep_sg1=84,
+                 sep_P2=85,
+                 sep_T2=86,
+                 sep_sg2=87,
+                 sep_P3=88,
+                 sep_T3=89,
+                 sep_sg3=90,
+                 sep_P4=91,
+                 sep_T4=92,
+                 sep_sg4=93,
+                 )
+
+    # PVTs
+    pvts = dict(Rgo=105,
+                Rog=102,
+                Bo=66,  # ???
+                Bgwet=103,
+                Bgdry=104,
+                # Bw=,
+                mu_o=72,
+                # mu_g=,
+                # mu_w=,
+                )
+
+    extras = dict(well_name=7,
+                  formation=8,
+                  fluid=10,
+                  p_res=67,
+                  Psc=97,
+                  Tsc=98)
+
+    columnsNumbers = list(knobs.values()) + list(pvts.values()) + list(extras.values())
+    columnsNumbers = [columnsNumber - 1 for columnsNumber in columnsNumbers]
+
+    columnsNames = list(knobs.keys()) + list(pvts.keys()) + list(extras.keys())
+    columnsNames = [x for _, x in sorted(zip(columnsNumbers, columnsNames))]
+
+    return columnsNumbers, columnsNames
+
+
+def calculateMetrics(originalPVT, pvtCorrelations):
+    metrics_star = {}
+    for property_, pvtCorrelation in pvtCorrelations.items():
+        metrics_dic = {'method': [], 'values': []}
+        for correlation in pvtCorrelation:
+            metrics_dic['method'].append(correlation)
+            metrics_dic['values'].append(metrics(originalPVT[property_], pvtCorrelation[correlation]))
+        metrics_df = pd.DataFrame(metrics_dic['values'], index=metrics_dic['method'])
+        metrics_df = metrics_df.round(2)
+
+        metrics_star[property_] = metrics_df
+
+    return metrics_star

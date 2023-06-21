@@ -26,7 +26,7 @@ hgor_treshold = 2000
 
 pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=Tsp, Psp=Psp,
                     hgor=hgor_treshold,
-                    columns=['temperature', 'API', 'gamma_s', 'Rgo', 'p',
+                    columns=['temperature', 'API', 'gamma_s', 'Rgo', 'psat',
                              'Bo', 'Bg', 'visc_o'],
                     path='data',
                     files=['PVT_Data'],

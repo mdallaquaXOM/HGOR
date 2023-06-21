@@ -80,5 +80,5 @@ plot_comparePVT(inputs=pvt_table,
                 title='Match')
 
 # saving the pvt table in a
-pvt_new.insert(0, 'p', pvtc.pvt_table['p'])
+pvt_new.insert(0, 'psat', pvtc.pvt_table['p'])
 pvt_new.to_excel(fr"outputs/macthedPVT.xlsx", index=False)

@@ -101,8 +101,8 @@ for n_sample in range(n_samples):
 
     # print tables
     psat = pvtc.pvt_table['p']
-    pvt_old.insert(0, 'p', psat)
-    pvt_match.insert(0, 'p', psat)
+    pvt_old.insert(0, 'psat', psat)
+    pvt_match.insert(0, 'psat', psat)
 
     with pd.ExcelWriter(fr'outputs/samples/pvt_{n_sample}.xlsx') as writer:
         pvt_old.to_excel(writer, index=False, sheet_name='original')

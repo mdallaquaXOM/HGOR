@@ -578,8 +578,8 @@ class PVTCORR_HGOR(PVTCORR):
                     temp = self._computeMuobAtSatPres(api, temperature, p_sat, gas_gravity,
                                                       method=correlation,
                                                       rs_best_correlation=rs_best_correlation)
-                elif property_ == 'cgr':
-                    temp = self._computeCondensateGasRate()
+                elif property_ == 'Rgo':
+                    temp = self._computeVaporizedOilGas()
 
 
                 else:
@@ -629,7 +629,7 @@ class PVTCORR_HGOR(PVTCORR):
         newparameter_prop_correl = None
 
         for property_, correlations in properties.items():
-            property_ = property_.lower()
+            property_lower = property_.lower()
             # get the new parameters for the property in question
             if new_parameters is not None:
                 if property_ in new_parameters:
@@ -642,26 +642,32 @@ class PVTCORR_HGOR(PVTCORR):
                     newparameter_prop_correl = new_parameter[correlation['principle']]
 
                 # function to call will depend on the property_
-                if property_ == 'rs':
+                if property_lower == 'rs':
                     temp = self._computeRsAtSatPress(api, temperature, p_sat,
                                                      gas_gravity_c=gas_gravity,
                                                      gas_gravity_s=gas_gravity_sp,
                                                      method=correlation,
                                                      parameters=newparameter_prop_correl)
-                elif property_ == 'bo':
+                elif property_lower == 'bo':
                     temp = self._computeBoAtSatPres(api, temperature, p_sat, gas_gravity,
                                                     method=correlation,
                                                     rs_best_correlation=rs_best_correlation)
 
-                elif property_ == 'muob':
+                elif property_lower == 'muob':
                     temp = self._computeMuobAtSatPres(api, temperature, p_sat, gas_gravity,
                                                       method=correlation,
                                                       rs_best_correlation=rs_best_correlation)
 
-                elif property_ == 'cgr':
-                    temp = self._computeCondensateGasRate(api=api, temperature=temperature, pressure=p_sat,
-                                                          gas_gravity=gas_gravity, method=correlation,
-                                                          )
+                elif property_lower == 'rog':
+                    separators = {'specific_gravity': [df['sep_sg1'], df['sep_sg2'], df['sep_sg3'], df['sep_sg4']],
+                                  'pressure': [df['sep_P1'], df['sep_P2'], df['sep_P3'], df['sep_P4']],
+                                  'temperature': [df['sep_T1'], df['sep_T2'], df['sep_T3'], df['sep_T4']],
+                                  }
+
+                    temp = self._computeVaporizedOilGas(api=api, temperature=temperature, pressure=p_sat,
+                                                        gas_gravity=gas_gravity_sp, method=correlation,
+                                                        separators=separators
+                                                        )
 
                 else:
                     raise Exception(f'Property unknown {property_}')
@@ -719,9 +725,9 @@ class PVTCORR_HGOR(PVTCORR):
                                               method=properties['muob'],
                                               Rso=rgo_c)
 
-        rog_c = self._computeCondensateGasRate(api=api, temperature=temperature, pressure=p_sat,
-                                               gas_gravity=gas_gravity_s, method=properties['CGR'],
-                                               )
+        rog_c = self._computeVaporizedOilGas(api=api, temperature=temperature, pressure=p_sat,
+                                             gas_gravity=gas_gravity_s, method=properties['Rog'],
+                                             )
 
         # Old Correlations Below
         # rgo_c = []
@@ -860,18 +866,18 @@ class PVTCORR_HGOR(PVTCORR):
         return res.x, res.fun
 
     def _computeCGRinitial(self, psat, gamma_cond, temperature,
-                           specific_gravity_sp1, specific_gravity_sp2,
-                           method):
+                           specific_gravity_sp1, specific_gravity_sp2, sp_P1, sp_P2,
+                           method, fluid=None):
         # Rvi = ( psat * STO^(-A3) * Tr^(-A4) * (X+Y)^(-A2) / A0  )^(1/A2)
         principle = method['principle'].lower()
 
         if principle == "nasser":
-            A0, A1, A2, A3, A4 = nassar_psat['GC'][self.separator_stages]
+            A0, A1, A2, A3, A4 = nassar_psat[fluid][self.separator_stages]
         else:
             raise Exception(f'CGR_initial method {principle}  not coded')
 
-        X = specific_gravity_sp1 / self.Psp1
-        Y = specific_gravity_sp2 / self.Psp2
+        X = specific_gravity_sp1 / sp_P1
+        Y = specific_gravity_sp2 / sp_P2
 
         a = (X + Y) ** A2
         b = gamma_cond ** A3
@@ -881,39 +887,56 @@ class PVTCORR_HGOR(PVTCORR):
 
         return CGR_i
 
-    def _computeCondensateGasRate(self, pressure, temperature, gas_gravity=None, gamma_cond=None,
-                                  specific_gravity_sp1=None,
-                                  specific_gravity_sp2=None, Rvi=None, method=None, api=None):
-        # correlations based on
-        #  Nasser (2013) - Modified Black Oil PVT Properties Correlations for Volatile Oil and Gas Condensate Reservoirs
-
-        # Rvi: For gas condensates, it will be available from production # data while for volatile oils, it will be
-        # calculated from the new correlation.
+    def _computeVaporizedOilGas(self, pressure, temperature, gas_gravity=None, Rvi=None, method=None, api=None,
+                                separators=None, fluid=None):
 
         principle = method['principle'].lower()
         variation = method['variation'].lower()
 
         if principle == "nasser":
-            if Rvi is None:
-                Rvi = self._computeCGRinitial(pressure, gamma_cond, temperature,
-                                              specific_gravity_sp1, specific_gravity_sp2,
-                                              method)
 
-            if variation == "knownPsat":
-                A0, A1, A2, A3, A4, A5 = nassar_CGR_knownPsat['GC'][self.separator_stages]
+            fluid, variation = variation.split('_')
+            fluid = fluid.upper()
+
+            # find if fluid is Volatile Oil (VO) or Gas condensate (GC)
+            #
+            # ideally if we know critical temperature=> VO: Tr<Tcr ; GC:Tr>Tcr
+            #
+            # alternative: table 9.1 of Lake, L. W. (ed). 2007. Petroleum Engineering Handbook
+            # VO:rs<3500; GC:rs>3500
+
+            # correlations based on Nasser (2013) - Modified Black Oil PVT Properties Correlations for Volatile Oil
+            # and Gas Condensate Reservoirs
+            sp_sg1 = separators['specific_gravity'][0]
+            sp_P1 = separators['pressure'][0]
+
+            sp_sg2 = separators['specific_gravity'][1]
+            sp_P2 = separators['pressure'][1]
+
+            gamma_cond = 141.5 / (api + 131.5)
+
+            if Rvi is None:
+                # Rvi: For gas condensates, it will be available from production data while for volatile oils,
+                # it will be calculated from the new correlation.
+                Rvi = self._computeCGRinitial(pressure, gamma_cond, temperature,
+                                              sp_sg1, sp_sg2, sp_P1, sp_P2,
+                                              method, fluid=fluid)
+
+            if variation == "knownpsat":
+                A0, A1, A2, A3, A4, A5 = nassar_CGR_knownPsat[fluid][self.separator_stages]
                 psat = pressure  # todo: correct psat
             else:  # variation == "unknonwPsat":
-                A0, A1, A2, A3, A4, A5 = nassar_CGR_unknownPsat['GC'][self.separator_stages]
+                A0, A1, A2, A3, A4, A5 = nassar_CGR_unknownPsat[fluid][self.separator_stages]
                 psat = 1.
 
-            X = specific_gravity_sp1 * self.Psp1
-            Y = specific_gravity_sp2 * self.Psp2
+            X = sp_sg1 * sp_P1
+            Y = sp_sg2 * sp_P2
             V = gamma_cond * psat / temperature
 
             a = A0 * pressure ** 2 + A1 * pressure + A2
             b = np.exp(A3 * X + A4 * Y)
             c = np.exp(A5 * V)
-            Rv = a * b * c * Rvi
+            Rv = a * b * c * Rvi  # STB/MMscf
 
         elif principle == "ace":
             if variation == 'ovalle':
@@ -928,7 +951,7 @@ class PVTCORR_HGOR(PVTCORR):
                     z_sum += C0 + C1 * zn + C2 * zn ** 2 + C3 * zn ** 3 + C4 * zn ** 4
 
                 ln_rv = 3.684 + 0.61967 * z_sum + 0.01539 * z_sum ** 2
-                Rv = np.exp(ln_rv)
+                Rv = np.exp(ln_rv)  # STB/MMscf
             else:
                 raise Exception(f'Rv method {principle} with variation ({variation}) not coded')
         else:
@@ -966,8 +989,8 @@ class PVTCORR_HGOR(PVTCORR):
 
             prop_values = {'method': [], 'values': []}
             for correlation in correlations:
-                cgr_c = self._computeCondensateGasRate(p_sat, temperature, gamma_cond, specific_gravity_sp1,
-                                                       specific_gravity_sp2, method=correlation, api=api)
+                cgr_c = self._computeVaporizedOilGas(p_sat, temperature, gamma_cond, specific_gravity_sp1,
+                                                     specific_gravity_sp2, method=correlation, api=api)
 
                 # treat outputs
                 # pvt_df = pd.DataFrame.from_dict(pvt_dic).reset_index(drop=True)
