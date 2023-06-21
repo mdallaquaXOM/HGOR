@@ -7,7 +7,7 @@ from utils import *
 pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7, filepath=os.path.join('../..', 'Data', 'PVT_paper.xlsx'))
 
 # # creating flag for HGOR
-# plot_pairplots(pvtc.pvt_table[['p_sat', 'temperature', 'gamma_gs', 'API', 'Rs', 'HGOR']], hue='HGOR',
+# plot_pairplots(pvtc.pvt_table[['p_sat', 'temperature', 'gamma_gs', 'API', 'Rgo', 'HGOR']], hue='HGOR',
 #                origin='paper')
 
 # From the table
@@ -28,7 +28,7 @@ Rs = pvtc.compute_PVT_Correlations_metrics_delete(api, gas_gravity, temperature,
 df_Rs = pd.DataFrame(Rs)
 df_Rs['HGOR'] = pvtc.pvt_table['HGOR']
 
-plot_log_log(df_Rs, measured='Rs',
+plot_log_log(df_Rs, measured='Rgo',
              calculated=['Vasquez_Beggs',
                          'Vasquez_Beggs_paper',
                          'Vasquez_Beggs_modified',
@@ -36,7 +36,7 @@ plot_log_log(df_Rs, measured='Rs',
                          'Exponential_Rational_16'],
              title='Rs (scf/stb) at saturation pressure')
 
-plot_log_log(df_Rs, measured='Rs',
+plot_log_log(df_Rs, measured='Rgo',
              calculated=['Vasquez_Beggs',
                          'Vasquez_Beggs_modified',
                          'Exponential_Rational_8'],

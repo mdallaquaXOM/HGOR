@@ -31,7 +31,7 @@ inputs, _ = sampling(sampling_type='lhs', n_samples=5 * 10,
 
 # New Correlations
 properties = {
-    # 'Rs': [
+    # 'Rgo': [
     #     {'principle': 'nasser', 'variation': 'GC'},
     #     {'principle': 'nasser', 'variation': 'VO'},
     # ],

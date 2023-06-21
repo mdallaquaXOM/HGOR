@@ -1,7 +1,5 @@
 from correlations.HGOR_script import PVTCORR_HGOR
 from correlations.utils import *
-from correlations.optimizer import optimizeParameter
-from correlations.definitions import *
 
 # from page 108
 
@@ -42,11 +40,7 @@ pvtc = PVTCORR_HGOR(sat_pressure=None,
 pvt_prop = pvtc.compute_PVT_Correlations(properties)
 
 # calculate metrics
-pvt_metrics = calculateMetrics(pvtc.pvt_table, pvt_prop)
-
-# insert HGOR and measured values
-pvt_prop['Rog']['measured'] = pvtc.pvt_table['Rog']
-pvt_prop['Rog']['HGOR'] = pvtc.pvt_table['HGOR']
+pvt_metrics, pvt_prop = calculateMetrics(pvtc.pvt_table, pvt_prop)
 
 # plot
 colums2plot = pvt_prop['Rog'].drop(['measured', 'HGOR'], axis=1).columns.values

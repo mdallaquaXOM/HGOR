@@ -20,22 +20,32 @@ source_curve = 'PVT_Data'
 # EDA_plotly(pvtc.pvt_table)
 
 
-properties = {'muob': [{'principle': 'Beggs_and_Robinson', 'variation': 'original'},
-                       {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
-                       {'principle': 'exponential_rational_15', 'variation': 'michael'}],
+properties = {'visc_o': [{'principle': 'Beggs_and_Robinson', 'variation': 'original'},
+                         {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
+                         {'principle': 'exponential_rational_15', 'variation': 'michael'}],
               }
 
 # Calculate Bo
-pvt_prop, pvt_metrics = pvtc.compute_PVT_Correlations_metrics_delete(properties,
-                                                                     source=source_curve,
-                                                                     rs_best_correlation={'principle': 'exponential_rational_8',
-                                                                           'variation': 'optimized'})
+# pvt_prop, pvt_metrics = pvtc.compute_PVT_Correlations_metrics_delete(properties,
+#                                                                      source=source_curve,
+#                                                                      rs_best_correlation={'principle':
+#                                                                      'exponential_rational_8',
+#                                                                            'variation': 'optimized'})
+pvt_prop = pvtc.compute_PVT_Correlations(properties,
+                                         source=source_curve,
+                                         rs_best_correlation={
+                                             'principle': 'exponential_rational_8',
+                                             'variation': 'optimized'})
 
-colums2plot = pvt_prop['muob'].drop(['measured', 'HGOR'], axis=1).columns.values
+# calculate metrics
+pvt_metrics, pvt_prop = calculateMetrics(pvtc.pvt_table, pvt_prop, source=source_curve)
 
-plot_properties(pvt_prop['muob'], measured='measured',
+# plot
+colums2plot = pvt_prop['visc_o'].drop(['measured', 'HGOR'], axis=1).columns.values
+
+plot_properties(pvt_prop['visc_o'], measured='measured',
                 calculated=colums2plot,
-                metrics_df=pvt_metrics['muob'],
+                metrics_df=pvt_metrics['visc_o'],
                 title='muob (cp) at saturation pressure',
-                property='muob',
+                property='visc_o',
                 log_axis=False)

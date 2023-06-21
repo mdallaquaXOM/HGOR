@@ -25,11 +25,23 @@ properties = {'Bo': [{'principle': 'vasquez_beggs', 'variation': 'original'},
               }
 
 # Calculate Bo
-pvt_prop, pvt_metrics = pvtc.compute_PVT_Correlations_metrics_delete(properties,
-                                                                     source=source_curve,
-                                                                     rs_best_correlation={'principle': 'exponential_rational_8',
-                                                                           'variation': 'optimized'})
+# pvt_prop, pvt_metrics = pvtc.compute_PVT_Correlations_metrics_delete(properties,
+#                                                                      source=source_curve,
+#                                                                      rs_best_correlation={
+#                                                                          'principle': 'exponential_rational_8',
+#                                                                          'variation': 'optimized'})
 
+# Calculate Bo
+pvt_prop = pvtc.compute_PVT_Correlations(properties,
+                                         source=source_curve,
+                                         rs_best_correlation={
+                                             'principle': 'exponential_rational_8',
+                                             'variation': 'optimized'})
+
+# calculate metrics
+pvt_metrics, pvt_prop = calculateMetrics(pvtc.pvt_table, pvt_prop,  source=source_curve)
+
+# plot
 colums2plot = pvt_prop['Bo'].drop(['measured', 'HGOR'], axis=1).columns.values
 
 plot_properties(pvt_prop['Bo'], measured='measured',

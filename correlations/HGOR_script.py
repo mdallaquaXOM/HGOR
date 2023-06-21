@@ -142,7 +142,7 @@ class PVTCORR_HGOR(PVTCORR):
             if variation == 'optimized':
                 if parameters is None:
                     new_parameter = pickle.load(open(r"optimizedParam/opt_results.pickle", "rb"))
-                    C = new_parameter['Rs']['exponential_rational_8']
+                    C = new_parameter['Rgo']['exponential_rational_8']
                 else:
                     C = parameters
 
@@ -485,7 +485,7 @@ class PVTCORR_HGOR(PVTCORR):
                            'temperature': temperature,
                            'gas_gravity': gas_gravity,
                            'api': api,
-                           'Rs': rs,
+                           'Rgo': rs,
                            'VB_original': pb_vb_orig,
                            'VB_paper': pb_vb_paper,
                            'Exp_Rational_8_paper': pb_exp_rat_8_paper,
@@ -510,100 +510,6 @@ class PVTCORR_HGOR(PVTCORR):
         metrics_df = metrics_df.round(2)
 
         return comparison_df, metrics_df
-
-    # todo: consider to delete this method
-    def compute_PVT_Correlations_metrics_delete(self, properties, rs_best_correlation=None,
-                                                new_parameters=None, source=None):
-
-        df = self.pvt_table
-
-        # filter by source
-        if source is not None:
-            mask = df['source'] == source
-            df = df[mask].reset_index(drop=True)
-
-        # recover inputs
-        api = df['API']
-        gas_gravity = df['gamma_c']
-        gas_gravity_sp = df['gamma_s']
-        temperature = df['temperature']
-        p_sat = np.array(df['psat'])
-        rgo = np.array(df['Rgo'])
-        Bo = np.array(df['Bo'])
-        visc_o = np.array(df['visc_o'])
-
-        # New correlations
-        comparison_star = {}
-        metrics_star = {}
-
-        new_parameter = None
-        newparameter_prop_correl = None
-
-        for property_, correlations in properties.items():
-            # get the new parameters for the property in question
-            if new_parameters is not None:
-                if property_ in new_parameters:
-                    new_parameter = new_parameters[property_]
-
-            # get measured value
-            if property_ == 'Rs':
-                value_measured = rgo
-            elif property_ == 'Bo':
-                value_measured = Bo
-            elif property_ == 'muob':
-                value_measured = visc_o
-            else:
-                raise Exception(f'Not able to get the measured values')
-
-            prop_values = {'method': ['measured'], 'values': [value_measured]}
-            metrics_dic = {'method': [], 'values': []}
-
-            for correlation in correlations:
-                if new_parameter is not None:
-                    newparameter_prop_correl = new_parameter[correlation['principle']]
-
-                # function to call will depend on the property_
-                if property_ == 'Rs':
-                    temp = self._computeRsAtSatPress(api, temperature, p_sat,
-                                                     gas_gravity_c=gas_gravity,
-                                                     gas_gravity_s=gas_gravity_sp,
-                                                     method=correlation,
-                                                     parameters=newparameter_prop_correl)
-                elif property_ == 'Bo':
-                    temp = self._computeBoAtSatPres(api, temperature, p_sat, gas_gravity,
-                                                    method=correlation,
-                                                    rs_best_correlation=rs_best_correlation)
-
-                elif property_ == 'muob':
-                    temp = self._computeMuobAtSatPres(api, temperature, p_sat, gas_gravity,
-                                                      method=correlation,
-                                                      rs_best_correlation=rs_best_correlation)
-                elif property_ == 'Rgo':
-                    temp = self._computeVaporizedOilGas()
-
-
-                else:
-                    raise Exception(f'Property unknown {property_}')
-
-                method = correlation['principle'] + '_' + correlation['variation']
-                prop_values['method'].append(method)
-                prop_values['values'].append(temp)
-
-                metrics_dic['method'].append(method)
-                metrics_dic['values'].append(metrics(value_measured, temp))
-
-            # convert things to dataframe
-            comparison_df = pd.DataFrame(prop_values['values'], index=prop_values['method']).T
-            metrics_df = pd.DataFrame(metrics_dic['values'], index=metrics_dic['method'])
-            metrics_df = metrics_df.round(2)
-
-            # add HGOR flag
-            comparison_df['HGOR'] = df['HGOR']
-
-            comparison_star[property_] = comparison_df
-            metrics_star[property_] = metrics_df
-
-        return comparison_star, metrics_star
 
     def compute_PVT_Correlations(self, properties, rs_best_correlation=None,
                                  new_parameters=None, source=None):
@@ -642,7 +548,7 @@ class PVTCORR_HGOR(PVTCORR):
                     newparameter_prop_correl = new_parameter[correlation['principle']]
 
                 # function to call will depend on the property_
-                if property_lower == 'rs':
+                if property_lower == 'rgo':
                     temp = self._computeRsAtSatPress(api, temperature, p_sat,
                                                      gas_gravity_c=gas_gravity,
                                                      gas_gravity_s=gas_gravity_sp,
@@ -653,7 +559,7 @@ class PVTCORR_HGOR(PVTCORR):
                                                     method=correlation,
                                                     rs_best_correlation=rs_best_correlation)
 
-                elif property_lower == 'muob':
+                elif property_lower == 'visc_o':
                     temp = self._computeMuobAtSatPres(api, temperature, p_sat, gas_gravity,
                                                       method=correlation,
                                                       rs_best_correlation=rs_best_correlation)
@@ -715,14 +621,14 @@ class PVTCORR_HGOR(PVTCORR):
 
         # Pvt properties
         rgo_c = self._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
-                                          method=properties['Rs'])
+                                          method=properties['Rgo'])
 
         bo_c = self._computeBoAtSatPres(api, temperature, p_sat, gas_gravity,
                                         method=properties['Bo'],
                                         rs=rgo_c)
 
         Visc_o_c = self._computeMuobAtSatPres(api, temperature, p_sat, gas_gravity,
-                                              method=properties['muob'],
+                                              method=properties['visc_o'],
                                               Rso=rgo_c)
 
         rog_c = self._computeVaporizedOilGas(api=api, temperature=temperature, pressure=p_sat,

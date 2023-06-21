@@ -26,7 +26,7 @@ pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
                     data=inputs
                     )
 
-properties = {'Rs': [
+properties = {'Rgo': [
     {'principle': 'ace', 'variation': 'None'},
     {'principle': 'datadriven', 'variation': 'ann'},
     {'principle': 'datadriven', 'variation': 'randomforest'},
@@ -40,7 +40,7 @@ properties = {'Rs': [
         {'principle': 'vasquez_beggs', 'variation': 'rs_update'},
         {'principle': 'exponential_rational_15', 'variation': 'michael'}
     ],
-    'muob': [
+    'visc_o': [
         {'principle': 'Beggs_and_Robinson', 'variation': 'original'},
         {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
         {'principle': 'exponential_rational_15', 'variation': 'michael'}],

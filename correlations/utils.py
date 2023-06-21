@@ -15,7 +15,7 @@ from scipy import stats
 
 def EDA_plotly(df):
     x_vars = 'p_sat'
-    y_vars = ['Rs', 'Bo_psat', 'visc_o_psat']
+    y_vars = ['Rgo', 'Bo_psat', 'visc_o_psat']
 
     figs = []
     for y_var in y_vars:
@@ -63,22 +63,22 @@ def EDA_seaborn(df):
     g.figure.savefig(rf'figures/pairplot_specific_gravity.png')
 
     # plot psat vs Rs,  psat vs Bo, psat vs visco
-    g = sns.pairplot(df, x_vars='p_sat', y_vars=['Rs', 'Bo_psat', 'visc_o_psat'], hue='source',
+    g = sns.pairplot(df, x_vars='p_sat', y_vars=['Rgo', 'Bo_psat', 'visc_o_psat'], hue='source',
                      height=3)
     g.figure.savefig(rf'figures/pairplot_p_sat.png')
 
     # Check correlations all
-    g = sns.pairplot(df, vars=['p_sat', 'temperature', 'gamma_s', 'gamma_c', 'API', 'Rs'], hue='HGOR')
+    g = sns.pairplot(df, vars=['p_sat', 'temperature', 'gamma_s', 'gamma_c', 'API', 'Rgo'], hue='HGOR')
     g.figure.savefig(rf'figures/pairplots_all.png')
 
     # Check correlations with RS
-    g = sns.pairplot(df, x_vars=['p_sat', 'temperature', 'gamma_s', 'gamma_c', 'API', 'Rs'],
-                     y_vars='Rs',
+    g = sns.pairplot(df, x_vars=['p_sat', 'temperature', 'gamma_s', 'gamma_c', 'API', 'Rgo'],
+                     y_vars='Rgo',
                      hue='HGOR')
     g.figure.savefig(rf'figures/pairplots_Rs.png')
 
 
-def plot_properties(df, measured, calculated, title=None, metrics_df=None, property='Rs', log_axis=True):
+def plot_properties(df, measured, calculated, title=None, metrics_df=None, property='Rgo', log_axis=True):
     colorsList = ["red", "blue", "green", "purple", "orange", "black", 'cyan']
 
     fig = plotly_sp.make_subplots(
@@ -239,7 +239,7 @@ def plot_pairplots(df, hue='', origin='xom'):
     g1 = sns.pairplot(df, hue=hue)
     g1.figure.savefig(rf'figures/pairplots_{origin}.png')
 
-    g2 = sns.pairplot(df, y_vars='Rs', hue=hue)
+    g2 = sns.pairplot(df, y_vars='Rgo', hue=hue)
     g2.figure.savefig(rf'figures/pairplots_Rs_{origin}.png')
 
 
@@ -277,13 +277,13 @@ def metrics(measured, calculated, columns=None):
 
     ADE = np.sum(np.abs(ln_measured - ln_calculated))
     LSE = np.sum((ln_measured - ln_calculated) ** 2)
-    RMSE = np.square(np.sum((measured - calculated) ** 2) / n_samples)
+    RMSE = np.sqrt(np.sum((measured - calculated) ** 2) / n_samples)
 
     ARE = np.sum((measured - calculated) / measured) * 100 / n_samples
     # AARE = np.sum(np.abs((measured - calculated) / calculated)) * 100 / n_samples # Blasingame paper
     AARE = np.sum(np.abs((measured - calculated) / measured)) * 100 / n_samples
 
-    metrics_ = {'LSE': LSE, 'ARE': ARE, 'ADE': ADE, 'AARE': AARE, 'RMSE': RMSE}
+    metrics_ = {'RMSE': RMSE, 'LSE': LSE, 'ARE': ARE, 'ADE': ADE, 'AARE': AARE}
 
     return metrics_
 
@@ -468,6 +468,8 @@ def metric2df(dict_, errorObj=None):
     if errorObj is not None:
         df_out.insert(0, 'optError', errorObj)
 
+    df_out.sort_values(by='AARE', ascending=True, inplace=True)
+
     return df_out
 
 
@@ -519,7 +521,12 @@ def excel_columns_map():
     return columnsNumbers, columnsNames
 
 
-def calculateMetrics(originalPVT, pvtCorrelations):
+def calculateMetrics(originalPVT, pvtCorrelations, source=None):
+    # filter by source
+    if source is not None:
+        mask = originalPVT['source'] == source
+        originalPVT = originalPVT[mask].reset_index(drop=True)
+
     metrics_star = {}
     for property_, pvtCorrelation in pvtCorrelations.items():
         metrics_dic = {'method': [], 'values': []}
@@ -527,8 +534,14 @@ def calculateMetrics(originalPVT, pvtCorrelations):
             metrics_dic['method'].append(correlation)
             metrics_dic['values'].append(metrics(originalPVT[property_], pvtCorrelation[correlation]))
         metrics_df = pd.DataFrame(metrics_dic['values'], index=metrics_dic['method'])
-        metrics_df = metrics_df.round(2)
+        metrics_df.sort_values(by='AARE', ascending=True, inplace=True)
+
+        metrics_df = metrics_df.round(1)
 
         metrics_star[property_] = metrics_df
 
-    return metrics_star
+        # insert HGOR and measured values
+        pvtCorrelations[property_]['measured'] = originalPVT[property_]
+        pvtCorrelations[property_]['HGOR'] = originalPVT['HGOR']
+
+    return metrics_star, pvtCorrelations

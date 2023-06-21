@@ -25,7 +25,7 @@ source_curve = 'PVT_Data'
 # 3 - Sequential Least SQuares Programming (SLSQP) Algorithm (method='SLSQP')
 # 4 - Unconstrained minimization: Broyden-Fletcher-Goldfarb-Shanno algorithm (method='BFGS')
 print('Vasquez and Beggs Optimization')
-C_new_VB = optimizeParameter(pvtc, opt_equation='Rs',
+C_new_VB = optimizeParameter(pvtc, opt_equation='Rgo',
                              algorithm=3,
                              metric_func='LSE',
                              correlation_method={'principle': 'vasquez_beggs', 'variation': 'optimized'},
@@ -34,7 +34,7 @@ C_new_VB = optimizeParameter(pvtc, opt_equation='Rs',
                              x_start=np.array([0.0178, 1.187, 23.931, 47.]))
 print()
 print('Exponential Rational 8 Optimization')
-C_new_8 = optimizeParameter(pvtc, opt_equation='Rs',
+C_new_8 = optimizeParameter(pvtc, opt_equation='Rgo',
                             algorithm=4,
                             metric_func='LSE',
                             correlation_method={'principle': 'exponential_rational_8', 'variation': 'optimized'},
@@ -50,7 +50,7 @@ C_new_8 = optimizeParameter(pvtc, opt_equation='Rs',
 #                              bounds=np.tile(np.array([[-4], [4]]), (1, 16)),
 #                              x_start=np.array(C_exp_rat_16_blasingame))
 
-new_parameters = {'Rs': {'vasquez_beggs': C_new_VB.x,
+new_parameters = {'Rgo': {'vasquez_beggs': C_new_VB.x,
                          'exponential_rational_8': C_new_8.x,
                          'exponential_rational_16': None,
                          'ace': None,
@@ -62,7 +62,7 @@ pickle.dump(new_parameters, open(r"optimizedParam/opt_results.pickle", "wb"))
 # np.save(r'optimizedParam/opt_results.npy',  new_parameter)
 
 
-properties = {'Rs': [
+properties = {'Rgo': [
     {'principle': 'vasquez_beggs', 'variation': 'original'},
     {'principle': 'ace', 'variation': 'mine'},
     {'principle': 'datadriven', 'variation': 'ann'},
@@ -77,25 +77,20 @@ properties = {'Rs': [
 }
 
 # Calculate RS
-pvt_prop, pvt_metrics = pvtc.compute_PVT_Correlations_metrics_delete(properties,
-                                                                     new_parameters=new_parameters,
-                                                                     source=source_curve,
-                                                                     rs_best_correlation={
-                                                                         'principle': 'exponential_rational_8',
-                                                                         'variation': 'optimized'})
+# pvt_prop, pvt_metrics = pvtc.compute_PVT_Correlations_metrics_delete(properties,
+#                                                                      new_parameters=new_parameters,
+#                                                                      source=source_curve,
+#                                                                         )
+pvt_prop = pvtc.compute_PVT_Correlations(properties,
+                                         source=source_curve)
 
-# plots
-# colums2plot = ['vasquez_beggs_original',
-#                          'vasquez_beggs_optimized',
-#                          'exponential_rational_8_blasingame',
-#                          'exponential_rational_8_optimized',
-#                          'exponential_rational_16_blasingame',
-#                          'exponential_rational_16_michael'
-#                          # 'Exp_Rational_16_optimized'
-#                          ]
-colums2plot = pvt_prop['Rs'].drop(['measured', 'HGOR'], axis=1).columns.values
+# calculate metrics
+pvt_metrics, pvt_prop = calculateMetrics(pvtc.pvt_table, pvt_prop,  source=source_curve)
 
-plot_properties(pvt_prop['Rs'], measured='measured',
+# plot
+colums2plot = pvt_prop['Rgo'].drop(['measured', 'HGOR'], axis=1).columns.values
+
+plot_properties(pvt_prop['Rgo'], measured='measured',
                 calculated=colums2plot,
-                metrics_df=pvt_metrics['Rs'],
+                metrics_df=pvt_metrics['Rgo'],
                 title='Rs (scf/stb) at saturation pressure')

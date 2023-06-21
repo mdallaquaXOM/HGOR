@@ -5,7 +5,7 @@ from scipy.optimize import minimize, Bounds, differential_evolution
 
 
 def optimizeParameter(pvt_class,
-                      opt_equation='Rs',
+                      opt_equation='Rgo',
                       source=None,
                       metric_func='LSE',
                       algorithm=3,
@@ -36,7 +36,7 @@ def optimizeParameter(pvt_class,
     # For metric evaluation
     rs_measured = np.array(df['Rgo'])
 
-    if opt_equation == 'Rs':
+    if opt_equation == 'Rgo':
         # objective function
         def obj_function(parameters):
             rs_calc = pvt_class._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,

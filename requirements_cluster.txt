@@ -1,6 +1,4 @@
+#python==3.6
 scikit-learn==0.21.2
 pickle==4.0
-ace
-matplotlib
-pandas
-openpyxl
+numpy==1.15.4

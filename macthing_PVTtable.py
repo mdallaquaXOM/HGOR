@@ -5,7 +5,7 @@ from correlations.HGOR_script import PVTCORR_HGOR
 
 # New Correlations  - select JUST ONE !!!!!!
 properties = {
-    'Rs':
+    'Rgo':
     # {'principle': 'vasquez_beggs', 'variation': 'original'},
     # {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
         {'principle': 'exponential_rational_8', 'variation': 'optimized'},
@@ -15,7 +15,7 @@ properties = {
     # {'principle': 'vasquez_beggs', 'variation': 'original'},
         {'principle': 'vasquez_beggs', 'variation': 'rs_update'},
     #       {'principle': 'exponential_rational_15', 'variation': 'michael'},
-    'muob':
+    'visc_o':
     # {'principle': 'Beggs_and_Robinson', 'variation': 'original'},
         {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
     #     {'principle': 'exponential_rational_15', 'variation': 'michael'}
