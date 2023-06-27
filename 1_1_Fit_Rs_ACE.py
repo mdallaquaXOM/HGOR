@@ -1,16 +1,14 @@
 from ace import model
 from correlations.ace import postProcessing, plot_transforms, plot_optimalRegression, read_column_data_from_xlxs
 
-# get x and y
-
-
-myace = model.Model()
-
+# Get the data
 x, y, var_names = read_column_data_from_xlxs(fname=r'data/PVT_Data.xlsx',
                                              columns=['temperature', 'API', 'gamma_s', 'Rgo', 'p'],
                                              independent_var='Rgo',
                                              log=['API', 'gamma_s', 'Rgo', 'p'])
 
+# create instance
+myace = model.Model()
 myace.build_model_from_xy(x, y)
 
 myace.ace.write_transforms_to_file(fname=r'outputs/ace/dg.txt')

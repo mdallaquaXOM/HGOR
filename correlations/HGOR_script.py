@@ -40,7 +40,8 @@ class PVTCORR_HGOR(PVTCORR):
         pvt_table = pvt_table.replace('nan', np.nan)
 
         # drop row if Rs (or Rgo) is nan
-        pvt_table = pvt_table[pvt_table.Rgo.notnull()]
+        columnsNAN = ['API', 'psat', 'Bo', 'gamma_s', 'temperature', 'Rog', 'Bgwet', 'Bgdry', 'Rgo']
+        pvt_table = pvt_table.dropna(subset=columnsNAN)
 
         # Fixing datatype
         if categorical_columns is not None:
@@ -78,6 +79,7 @@ class PVTCORR_HGOR(PVTCORR):
                     for i in range(dataAugmentation):
                         pvt_table = pd.concat([pvt_table, hgor])
 
+            # Fix units of Rog: STB/scf => STB/MMscf
             if 'Rog' in pvt_table:
                 pvt_table['Rog'] = pvt_table['Rog'] * 1.e6
 
@@ -570,7 +572,7 @@ class PVTCORR_HGOR(PVTCORR):
                                   'temperature': [df['sep_T1'], df['sep_T2'], df['sep_T3'], df['sep_T4']],
                                   }
 
-                    temp = self._computeVaporizedOilGas(api=api, temperature=temperature, pressure=p_sat,
+                    temp = self._computeVaporizedOilGas(API=api, temperature=temperature, pressure=p_sat,
                                                         gas_gravity=gas_gravity_sp, method=correlation,
                                                         separators=separators
                                                         )
@@ -631,7 +633,7 @@ class PVTCORR_HGOR(PVTCORR):
                                               method=properties['visc_o'],
                                               Rso=rgo_c)
 
-        rog_c = self._computeVaporizedOilGas(api=api, temperature=temperature, pressure=p_sat,
+        rog_c = self._computeVaporizedOilGas(API=api, temperature=temperature, pressure=p_sat,
                                              gas_gravity=gas_gravity_s, method=properties['Rog'],
                                              )
 
@@ -793,7 +795,7 @@ class PVTCORR_HGOR(PVTCORR):
 
         return CGR_i
 
-    def _computeVaporizedOilGas(self, pressure, temperature, gas_gravity=None, Rvi=None, method=None, api=None,
+    def _computeVaporizedOilGas(self, pressure, temperature, gas_gravity=None, Rvi=None, method=None, API=None,
                                 separators=None, fluid=None):
 
         principle = method['principle'].lower()
@@ -819,7 +821,7 @@ class PVTCORR_HGOR(PVTCORR):
             sp_sg2 = separators['specific_gravity'][1]
             sp_P2 = separators['pressure'][1]
 
-            gamma_cond = 141.5 / (api + 131.5)
+            gamma_cond = 141.5 / (API + 131.5)
 
             if Rvi is None:
                 # Rvi: For gas condensates, it will be available from production data while for volatile oils,
@@ -842,12 +844,12 @@ class PVTCORR_HGOR(PVTCORR):
             a = A0 * pressure ** 2 + A1 * pressure + A2
             b = np.exp(A3 * X + A4 * Y)
             c = np.exp(A5 * V)
-            Rv = a * b * c * Rvi  # STB/MMscf
+            Rog = a * b * c * Rvi  # STB/MMscf
 
         elif principle == "ace":
             if variation == 'ovalle':
                 ln_p = np.log(pressure)
-                z = [ln_p, api, gas_gravity, temperature]
+                z = [ln_p, API, gas_gravity, temperature]
                 var = ['ln_p', 'Api', 'gamma', 'temp']
 
                 z_sum = 0.
@@ -857,13 +859,48 @@ class PVTCORR_HGOR(PVTCORR):
                     z_sum += C0 + C1 * zn + C2 * zn ** 2 + C3 * zn ** 3 + C4 * zn ** 4
 
                 ln_rv = 3.684 + 0.61967 * z_sum + 0.01539 * z_sum ** 2
-                Rv = np.exp(ln_rv)  # STB/MMscf
+                Rog = np.exp(ln_rv)  # STB/MMscf
+
+            elif variation == 'marcelo':
+                gamma_s = gas_gravity
+
+                ln_psat = np.log(pressure)
+
+                API_Tr = -2.1404e+01 * API ** 0 + 8.5929e-01 * API ** 1 + -8.4696e-03 * API ** 2
+                gamma_s_Tr = -1.2394e+01 * gamma_s ** 0 + 3.3632e+01 * gamma_s ** 1 + -2.2424e+01 * gamma_s ** 2
+                temperature_Tr = 2.9002e+03 * temperature ** 0 + -9.6609e+01 * temperature ** 1 + 1.2846e+00 * \
+                                 temperature ** 2 + -8.5251e-03 * temperature ** 3 + 2.8238e-05 * temperature ** 4 + \
+                                 -3.7352e-08 * temperature ** 5
+                ln_psat_Tr = -3.6062e+01 * ln_psat ** 0 + 6.2120e+00 * ln_psat ** 1 + -2.2215e-01 * ln_psat ** 2
+
+                Sum_Tr = API_Tr + gamma_s_Tr + temperature_Tr + ln_psat_Tr
+
+                ln_Rog = 3.1752e+00 * Sum_Tr ** 0 + 1.0989e+00 * Sum_Tr ** 1
+
+                Rog = np.exp(ln_Rog)
+
             else:
                 raise Exception(f'Rv method {principle} with variation ({variation}) not coded')
+
+        elif principle == "exponential_rational_8":
+
+            new_parameter = pickle.load(open(r"optimizedParam/opt_results.pickle", "rb"))
+            C = new_parameter['Rog']['exponential_rational_8']
+
+            a = C[0] + C[1] * np.log(temperature)
+            b = C[2] + C[3] * np.log(API)
+            d = C[6] + C[7] * np.log(gas_gravity)
+
+            K = (a / np.log(pressure) - 1.) * ((b * d) ** (-1))
+
+            ln_Rog = (K - C[4]) / C[5]
+
+            Rog = np.exp(ln_Rog)
+
         else:
             raise Exception(f'Rv method {principle} with variation ({variation}) not coded')
 
-        return Rv
+        return Rog
 
     def test_RV_Nasser(self, properties, new_parameters=None, source=None):
 
@@ -896,7 +933,7 @@ class PVTCORR_HGOR(PVTCORR):
             prop_values = {'method': [], 'values': []}
             for correlation in correlations:
                 cgr_c = self._computeVaporizedOilGas(p_sat, temperature, gamma_cond, specific_gravity_sp1,
-                                                     specific_gravity_sp2, method=correlation, api=api)
+                                                     specific_gravity_sp2, method=correlation, API=api)
 
                 # treat outputs
                 # pvt_df = pd.DataFrame.from_dict(pvt_dic).reset_index(drop=True)

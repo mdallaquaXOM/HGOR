@@ -19,6 +19,7 @@ properties = {
         {'principle': 'nasser', 'variation': 'GC_unknownPsat'},
         {'principle': 'nasser', 'variation': 'GC_knownPsat'},
         {'principle': 'ace', 'variation': 'ovalle'},
+        {'principle': 'ace', 'variation': 'marcelo'},
     ],
 }
 

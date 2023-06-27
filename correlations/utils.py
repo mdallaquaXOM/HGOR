@@ -57,25 +57,30 @@ def EDA_plotly(df):
     fig.show()
 
 
-def EDA_seaborn(df):
+def EDA_seaborn(df, hue='source'):
+    if isinstance(hue, str):
+        hue_title = hue
+    else:
+        hue_title = 'composite'
+
     # plot comparing the viscosities
-    g = sns.pairplot(df, vars=['gamma_s', 'gamma_c'], hue='source', )
-    g.figure.savefig(rf'figures/pairplot_specific_gravity.png')
+    g = sns.pairplot(df, vars=['gamma_s', 'gamma_c'], hue=hue)
+    g.figure.savefig(rf'figures/EDA/1_specific_gravity_{hue_title}.png')
 
     # plot psat vs Rs,  psat vs Bo, psat vs visco
-    g = sns.pairplot(df, x_vars='p_sat', y_vars=['Rgo', 'Bo_psat', 'visc_o_psat'], hue='source',
+    g = sns.pairplot(df, x_vars='psat', y_vars=['Rgo', 'Rog', 'Bo', 'mu_o'], hue=hue,
                      height=3)
-    g.figure.savefig(rf'figures/pairplot_p_sat.png')
+    g.figure.savefig(rf'figures/EDA/2_psat_{hue_title}.png')
 
     # Check correlations all
-    g = sns.pairplot(df, vars=['p_sat', 'temperature', 'gamma_s', 'gamma_c', 'API', 'Rgo'], hue='HGOR')
-    g.figure.savefig(rf'figures/pairplots_all.png')
+    g = sns.pairplot(df, vars=['psat', 'temperature', 'gamma_s', 'API', 'Rgo', 'Rog'], hue=hue)
+    g.figure.savefig(rf'figures/EDA/3_all_{hue_title}.png')
 
     # Check correlations with RS
-    g = sns.pairplot(df, x_vars=['p_sat', 'temperature', 'gamma_s', 'gamma_c', 'API', 'Rgo'],
+    g = sns.pairplot(df, x_vars=['psat', 'temperature', 'gamma_s', 'API', 'Rgo', 'Rog'],
                      y_vars='Rgo',
-                     hue='HGOR')
-    g.figure.savefig(rf'figures/pairplots_Rs.png')
+                     hue=hue)
+    g.figure.savefig(rf'figures/EDA/4_Rs_{hue_title}.png')
 
 
 def plot_properties(df, measured, calculated, title=None, metrics_df=None, property='Rgo', log_axis=True):

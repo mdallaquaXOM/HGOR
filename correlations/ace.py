@@ -7,29 +7,64 @@ import pandas as pd
 import re
 
 
-def read_column_data_from_xlxs(fname, columns=None, independent_var=None, log=None, header=1, skiprows=None):
+def read_column_data_from_xlxs(fname, columns=None, columnsNames=None,
+                               independent_var=None, log=None,
+                               dependent_vars=None,
+                               header=1, skiprows=None):
     pvt_table = pd.read_excel(fname, header=header, usecols=columns, skiprows=skiprows)
 
+    # columns name
+    if columnsNames is not None:
+        pvt_table.columns = columnsNames
+
+    # Cleaning data
+    pvt_table = pvt_table.replace('-', np.nan)
+    pvt_table = pvt_table.replace('nan', np.nan)
+
+    # Fix units of Rog: STB/scf => STB/MMscf
+    if 'Rog' in pvt_table:
+        pvt_table['Rog'] = pvt_table['Rog'] * 1.e6
+
+    # drop row if independent value is nan
+    pvt_table = pvt_table[pvt_table[independent_var].notnull()]
+    for dependent_var in dependent_vars:
+        pvt_table = pvt_table[pvt_table[dependent_var].notnull()]
+
     # convert to log if asked
+    log_scale = {'independent': [],
+                 'dependent': []}
+
     if log is not None:
         for var_log in log:
             pvt_table[var_log] = np.log(pvt_table[var_log])
-            new_column_name = f'{var_log}_ln'
+            new_column_name = f'ln_{var_log}'
             pvt_table = pvt_table.rename(columns={var_log: new_column_name})
 
-            if independent_var == var_log:
+            if var_log == independent_var:
+                log_scale['independent'].append(independent_var)
                 independent_var = new_column_name
 
+            if var_log in dependent_vars:
+                log_scale['dependent'].append(var_log)
+
+                idx = dependent_vars.index(var_log)
+                dependent_vars[idx] = new_column_name
+
     y_values = pvt_table[[independent_var]]
-    x_values = pvt_table.drop([independent_var], axis=1)
+    if dependent_vars is None:
+        x_values = pvt_table.drop([independent_var], axis=1)
+    else:
+        x_values = pvt_table[dependent_vars]
 
     var_names = {'independent': x_values.columns.to_list(),
                  'dependent': y_values.columns.to_list()}
+    vars_ = {'var_names': var_names,
+             'log_scale': log_scale}
 
     y_values = y_values.values.flatten()
     x_values = x_values.values.T.tolist()
 
-    return x_values, y_values, var_names
+    return x_values, y_values, vars_
 
 
 def read_column_data_from_dat(fname, independent_var=None, log=None):
@@ -84,12 +119,18 @@ def read_column_data_from_dat(fname, independent_var=None, log=None):
     return x_values, y_values, var_names
 
 
-def postProcessing(ace_model, order_indep=2, order_dep=2, var_names=None, fname=None):
+def postProcessing(ace_model, order_indep=[2], order_dep=2, variables=None, fname=None):
     print()
     print('Coefficients for regression:')
 
     # Regression for independent variables
+    var_names = variables['var_names']
+    log_Scale = variables['log_scale']
+
     str_names = []
+    for var_log in log_Scale['dependent']:
+        str_names.append(f"\tln_{var_log} = np.log({var_log})")
+    str_names.append('')
     beta_independet = []
 
     nVariables = len(ace_model.x)
@@ -108,14 +149,16 @@ def postProcessing(ace_model, order_indep=2, order_dep=2, var_names=None, fname=
         # beta = pol_reg.coef_
 
         beta = np.linalg.solve(X_poly.T @ X_poly, X_poly.T @ y)
-        # print(f"\t {var_names['independent'][i]}_Tr = {['' for i, beta_i in enumerate(beta) ]}")
-        # print(f"\t {var_names['independent'][i]}_Tr = {beta.reshape(1, -1)}")
+        # print(f"\t{var_names['independent'][i]}_Tr = {['' for i, beta_i in enumerate(beta) ]}")
+        # print(f"\t{var_names['independent'][i]}_Tr = {beta.reshape(1, -1)}")
+
+        # saving in a txt
         var_name = var_names['independent'][i]
-        str_names.append(f"\t {var_name}_Tr = "
+        str_names.append(f"\t{var_name}_Tr = "
                          f""
                          f""
                          f"{' + '.join(map(str, [f'{beta_i[0]:.4e}*{var_name}**{j}' for j, beta_i in enumerate(beta)]))}")
-        print(str_names[i])
+        print(str_names[i + len(log_Scale['dependent'])])
         beta_independet.append(beta)
 
     # insert sum of Transforms
@@ -131,16 +174,24 @@ def postProcessing(ace_model, order_indep=2, order_dep=2, var_names=None, fname=
     X_poly = poly_reg.fit_transform(X=x)
 
     beta_dep = np.linalg.solve(X_poly.T @ X_poly, X_poly.T @ y)
+
+    # Saving in a txt
     var_name = var_names['dependent']
     str_names.append('')
-    str_names.append(f"\t {var_name[0]} = "f""
+    str_names.append(f"\t{var_name[0]} = "f""
                      f"{' + '.join(map(str, [f'{beta_i[0]:.4e}*Sum_Tr**{j}' for j, beta_i in enumerate(beta_dep)]))}")
     print(str_names[-1])
+
+    # insert inverse for the final correlation
+    str_names.append('')
+    for var_log in log_Scale['independent']:
+        str_names.append(f"\t{var_log} = np.exp(ln_{var_log})")
+        print(str_names[-1])
 
     coefficients = {'independent': beta_independet,
                     'dependent': beta_dep}
 
-    str_names = [re.sub('\t ', '', str_name) for str_name in str_names]
+    str_names = [re.sub('\t', '', str_name) for str_name in str_names]
     with open(fname, 'w') as f:
         for str_name in str_names:
             f.write(f'{str_name}\n')
@@ -234,7 +285,9 @@ def plot_optimalRegression(ace_model, fname='ace_transforms.png', var_names=None
     return plt
 
 
-def plot_transforms(ace_model, fname='ace_transforms.png', var_names=None, regression_coeff=None):
+def plot_transforms(ace_model, fname='ace_transforms.png', variables=None, regression_coeff=None):
+    var_names = variables['var_names']
+
     """Plot the transforms."""
     if not plt:
         raise ImportError('Cannot plot without the matplotlib package')
