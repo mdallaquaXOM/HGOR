@@ -40,7 +40,10 @@ class PVTCORR_HGOR(PVTCORR):
         pvt_table = pvt_table.replace('nan', np.nan)
 
         # drop row if Rs (or Rgo) is nan
-        columnsNAN = ['API', 'psat', 'Bo', 'gamma_s', 'temperature', 'Rog', 'Bgwet', 'Bgdry', 'Rgo']
+        if 'Rog' in pvt_table.columns:
+            columnsNAN = ['API', 'psat', 'Bo', 'gamma_s', 'temperature', 'Rgo', 'Rog', 'Bgwet', 'Bgdry']
+        else:
+            columnsNAN = ['API', 'psat', 'Bo', 'gamma_s', 'temperature', 'Rgo']
         pvt_table = pvt_table.dropna(subset=columnsNAN)
 
         # Fixing datatype
@@ -796,7 +799,7 @@ class PVTCORR_HGOR(PVTCORR):
         return CGR_i
 
     def _computeVaporizedOilGas(self, pressure, temperature, gas_gravity=None, Rvi=None, method=None, API=None,
-                                separators=None, fluid=None):
+                                separators=None, fluid=None, parameters=None):
 
         principle = method['principle'].lower()
         variation = method['variation'].lower()
@@ -884,8 +887,11 @@ class PVTCORR_HGOR(PVTCORR):
 
         elif principle == "exponential_rational_8":
 
-            new_parameter = pickle.load(open(r"optimizedParam/opt_results.pickle", "rb"))
-            C = new_parameter['Rog']['exponential_rational_8']
+            if parameters is None:
+                new_parameter = pickle.load(open(r"optimizedParam/opt_results.pickle", "rb"))
+                C = new_parameter['Rog']['exponential_rational_8']
+            else:
+                C = parameters
 
             a = C[0] + C[1] * np.log(temperature)
             b = C[2] + C[3] * np.log(API)

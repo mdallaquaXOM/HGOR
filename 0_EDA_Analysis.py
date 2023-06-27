@@ -14,8 +14,10 @@ pvtc = PVTCORR_HGOR(sat_pressure=None,
                     categorical_columns=['well_name', 'formation', 'fluid'],
                     skiprows=0,
                     dataAugmentation=0)
-#
+# Seaborn
 EDA_seaborn(pvtc.pvt_table, hue='HGOR')
 EDA_seaborn(pvtc.pvt_table, hue='fluid')
 
+# Plotly
+EDA_plotly(pvtc.pvt_table)
 a = 0

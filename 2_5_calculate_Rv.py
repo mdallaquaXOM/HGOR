@@ -20,6 +20,7 @@ properties = {
         {'principle': 'nasser', 'variation': 'GC_knownPsat'},
         {'principle': 'ace', 'variation': 'ovalle'},
         {'principle': 'ace', 'variation': 'marcelo'},
+        {'principle': 'exponential_rational_8', 'variation': 'optimized'},
     ],
 }
 

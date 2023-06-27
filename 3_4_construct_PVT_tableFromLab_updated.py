@@ -23,23 +23,25 @@ pvt_old = pvtc.construct_PVT_table_old()
 # New Correlations  - select JUST ONE !!!!!!
 properties = {
     'Rgo':
-    # {'principle': 'vasquez_beggs', 'variation': 'original'},
-    # {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
+        # {'principle': 'vasquez_beggs', 'variation': 'original'},
+        # {'principle': 'exponential_rational_8', 'variation': 'blasingame'},
         {'principle': 'exponential_rational_8', 'variation': 'optimized'},
-    # {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
-    # {'principle': 'exponential_rational_16', 'variation': 'michael'},
+        # {'principle': 'exponential_rational_16', 'variation': 'blasingame'},
+        # {'principle': 'exponential_rational_16', 'variation': 'michael'},
     'Bo':
-    # {'principle': 'vasquez_beggs', 'variation': 'original'},
+        # {'principle': 'vasquez_beggs', 'variation': 'original'},
         {'principle': 'vasquez_beggs', 'variation': 'rs_update'},
-    # {'principle': 'exponential_rational_15', 'variation': 'michael'}
+        # {'principle': 'exponential_rational_15', 'variation': 'michael'}
     'visc_o':
-    # {'principle': 'Beggs_and_Robinson', 'variation': 'original'},
+        # {'principle': 'Beggs_and_Robinson', 'variation': 'original'},
         {'principle': 'Beggs_and_Robinson', 'variation': 'rs_update'},
-    #     {'principle': 'exponential_rational_15', 'variation': 'michael'},
+        #     {'principle': 'exponential_rational_15', 'variation': 'michael'},
     'Rog':
-    # {'principle': 'nasser', 'variation': 'knownPsat'},
-        {'principle': 'ace', 'variation': 'ovalle'}
-}
+        # {'principle': 'nasser', 'variation': 'knownPsat'},
+        # {'principle': 'ace', 'variation': 'ovalle'},
+        # {'principle': 'ace', 'variation': 'marcelo'},
+        {'principle': 'exponential_rational_8', 'variation': 'optimized'},
+    }
 pvt_new = pvtc.construct_PVT_table_new(properties)
 
 # Calculate metrics

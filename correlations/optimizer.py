@@ -11,7 +11,10 @@ def optimizeParameter(pvt_class,
                       algorithm=3,
                       correlation_method=None,
                       bounds=None,
-                      x_start=None):
+                      x_start=None,
+                      correct_gamma=True,
+                      verbose=False,
+                      callback=None):
     # type
     # 1 - Global optimization
     # 2 - Trust-Region Constrained Algorithm (method='trust-constr')
@@ -29,39 +32,71 @@ def optimizeParameter(pvt_class,
 
     # recover inputs
     api = df['API']
-    gas_gravity = df['gamma_c']
     temperature = df['temperature']
     p_sat = np.array(df['psat'])
 
-    # For metric evaluation
-    rs_measured = np.array(df['Rgo'])
+    if correct_gamma:
+        gas_gravity = df['gamma_c']
+    else:
+        gas_gravity = df['gamma_s']
 
-    if opt_equation == 'Rgo':
-        # objective function
-        def obj_function(parameters):
-            rs_calc = pvt_class._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
+    # For metric evaluation
+    measured = np.array(df[opt_equation])
+
+    # objective function
+    def obj_function(parameters, info=None):
+        if opt_equation == 'Rgo':
+            calc = pvt_class._computeRsAtSatPress(api, temperature, p_sat, gas_gravity,
+                                                  method=correlation_method,
+                                                  parameters=parameters)
+        elif opt_equation == 'pb':
+            rs_measured = np.array(df['Rgo'])
+            calc = pvt_class._compute_bubblePressure(api, temperature, rs_measured, gas_gravity,
                                                      method=correlation_method,
                                                      parameters=parameters)
-            metrics_ = metrics(rs_measured, rs_calc)
-            obj = metrics_[metric_func]
+        elif opt_equation == 'Rog':
+            separators = {'specific_gravity': [df['sep_sg1'], df['sep_sg2'], df['sep_sg3'], df['sep_sg4']],
+                          'pressure': [df['sep_P1'], df['sep_P2'], df['sep_P3'], df['sep_P4']],
+                          'temperature': [df['sep_T1'], df['sep_T2'], df['sep_T3'], df['sep_T4']],
+                          }
+            calc = pvt_class._computeVaporizedOilGas(API=api, temperature=temperature, pressure=p_sat,
+                                                     gas_gravity=gas_gravity, method=correlation_method,
+                                                     separators=separators,
+                                                     parameters=parameters
+                                                     )
 
-            return obj
-    elif opt_equation == 'pb':
-        def obj_function(parameters):
-            pb_calc = pvt_class._compute_bubblePressure(api, temperature, rs_measured, gas_gravity,
-                                                        method=correlation_method,
-                                                        parameters=parameters)
-            metrics_ = metrics(p_sat, pb_calc)
-            obj = metrics_[metric_func]
-            # if obj == np.inf:
-            #     obj = pvt_class.LARGE
+        else:
+            raise Exception(f'opt_equation not coder {opt_equation}')
 
-            return obj
+        metrics_ = metrics(measured, calc)
+        obj = metrics_[metric_func]
+
+        if info is not None:
+            if info['Nfeval'] % 1000 == 0:
+                strFormat = '{0:4d}   {1: 3.4e}   {2: 3.4e}   {3: 3.4e}   {4: 3.4e}   {5: 3.4e}   {6: 3.4e}   {7: ' \
+                            '.4e}   ' \
+                            '{8: 3.4e}   {9: 3.4e}'
+                print(strFormat.format(info['Nfeval'], *parameters, obj))
+            info['Nfeval'] += 1
+
+        return obj
 
     # Optimization
     if algorithm == 1:
-        print('\tOptimizer: Global optimization')
-        x_new = differential_evolution(obj_function, bounds=bounds, x0=x_start, tol=1e-8, strategy='best2exp')
+
+        if callback:
+            print('\tOptimizer: Global optimization')
+            print()
+            strFormat = '{0:4s}   {1:11s}   {2:11s}   {3:11s}   {4:11s}   {5:11s}   {6:11s}   {7:11s}   {8:11s}   {' \
+                        '9:11s}'
+            print(strFormat.format('Iter', ' C0', ' C1', ' C2', ' C3', ' C4', ' C5', ' C6', ' C7', ' f(X)'))
+
+            args = ({'Nfeval': 0},)
+        else:
+            args = None
+
+        x_new = differential_evolution(obj_function, bounds, x0=x_start, tol=1e-8, strategy='best2exp',
+                                       disp=verbose, args=args)
     else:
         if algorithm == 2:
             print('\tOptimizer: Trust-Region Constrained Algorithm')
@@ -76,9 +111,8 @@ def optimizeParameter(pvt_class,
             method = None
 
         x_new = minimize(obj_function, x_start, method=method, tol=1e-8, bounds=bounds,
-                         options={'disp': True})
+                         options={'disp': verbose})
 
     print(f'\tBest set of parameters: {x_new.x}')
 
     return x_new
-
