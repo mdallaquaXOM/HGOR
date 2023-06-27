@@ -14,8 +14,8 @@ from scipy import stats
 
 
 def EDA_plotly(df):
-    x_vars = 'p_sat'
-    y_vars = ['Rgo', 'Bo_psat', 'visc_o_psat']
+    x_vars = 'psat'
+    y_vars = ['Rgo', 'Bo', 'Rog']
 
     figs = []
     for y_var in y_vars:
@@ -165,7 +165,7 @@ def plot_properties(df, measured, calculated, title=None, metrics_df=None, prope
         title=dict(text=title, font=dict(size=50), automargin=True)
     )
 
-    fig.write_html(fr"figures/{property}.html")
+    fig.write_html(fr"figures/properties/{property}.html")
     fig.show()
 
 
@@ -342,7 +342,7 @@ def sampling(bounds, sampling_type='lhs', n_samples=100, criterion=None,
     nVariables = len(bounds)
 
     keys = list(bounds.keys())
-    keys_expanded = ['p'] + keys + ['sample']
+    keys_expanded = ['psat'] + keys + ['sample']
 
     bounds = np.vstack(list(bounds.values())).T
 
@@ -397,7 +397,7 @@ def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=
                 palette = sns.color_palette()
 
             g = sns.lineplot(data=data,
-                             x="p",
+                             x="psat",
                              y=correlation_name,
                              hue=hueplot,
                              palette=palette,
@@ -415,7 +415,7 @@ def plot_synthetic_data(correlations_df, input_df, name='', jumpLog='', hueplot=
                 axes[i, j].set_xscale(axes_type)
     fig.suptitle(name, fontsize=24)
     plt.tight_layout()
-    fig.savefig(fr'figures\synthetic_{name}_hue_{hueplot}')
+    fig.savefig(fr'figures\overfitting\synthetic_{name}_hue_{hueplot}')
     plt.show()
 
 

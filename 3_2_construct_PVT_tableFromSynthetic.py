@@ -62,7 +62,7 @@ for n_sample in range(n_samples):
     plot_comparePVT(inputs=pvt_input,
                     df_old=pvt_old,
                     df_new=pvt_new,
-                    path=r'figures/synthetic/',
+                    path=r'figures/PVTsynthetic/',
                     title=f'Synthetic {n_sample}')
 
     # Get the error

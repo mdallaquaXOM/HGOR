@@ -4,15 +4,29 @@ from correlations.utils import *
 from correlations.optimizer import optimizeParameter
 from correlations.definitions import *
 
-pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
-                    hgor=2500,
-                    columns=['temperature', 'API', 'gamma_s', 'Rgo', 'psat', 'Bo', 'visc_o'],
-                    path='data',
-                    files=['PVT_Data', 'PVT_paper'],
-                    dataAugmentation=1)
+source_curve = 'PVT_Data_updated'
 
-source_opt = 'PVT_Data'
-source_curve = 'PVT_Data'
+# create class
+if source_curve == 'PVT_Data_updated':
+    # map of columns to read the Excel file
+    columnsNumbers, columnsNames = excel_columns_map()
+
+    pvtc = PVTCORR_HGOR(sat_pressure=None,
+                        hgor=2500,
+                        columns=columnsNumbers,
+                        path='data',
+                        files=[source_curve],
+                        columnsNames=columnsNames,
+                        categorical_columns=['well_name', 'formation', 'fluid'],
+                        skiprows=0,
+                        dataAugmentation=0)
+else:
+    pvtc = PVTCORR_HGOR(sat_pressure=None, Tsp=60, Psp=14.7,
+                        hgor=2500,
+                        columns=['temperature', 'API', 'gamma_s', 'Rgo', 'psat', 'Bo', 'visc_o'],
+                        path='data',
+                        files=['PVT_Data', 'PVT_paper'],
+                        dataAugmentation=0)
 
 # Perform EDA
 # EDA_seaborn(pvtc.pvt_table)

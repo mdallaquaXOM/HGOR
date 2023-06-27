@@ -19,5 +19,4 @@ EDA_seaborn(pvtc.pvt_table, hue='HGOR')
 EDA_seaborn(pvtc.pvt_table, hue='fluid')
 
 # Plotly
-EDA_plotly(pvtc.pvt_table)
-a = 0
+# EDA_plotly(pvtc.pvt_table)

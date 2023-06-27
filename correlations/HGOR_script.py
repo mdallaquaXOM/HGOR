@@ -40,10 +40,9 @@ class PVTCORR_HGOR(PVTCORR):
         pvt_table = pvt_table.replace('nan', np.nan)
 
         # drop row if Rs (or Rgo) is nan
-        if 'Rog' in pvt_table.columns:
-            columnsNAN = ['API', 'psat', 'Bo', 'gamma_s', 'temperature', 'Rgo', 'Rog', 'Bgwet', 'Bgdry']
-        else:
-            columnsNAN = ['API', 'psat', 'Bo', 'gamma_s', 'temperature', 'Rgo']
+        possibleColumns = ['API', 'psat', 'Bo', 'gamma_s', 'temperature', 'Rgo', 'Rog', 'Bgwet', 'Bgdry']
+        columnsNAN = [value for value in possibleColumns if value in pvt_table.columns]
+
         pvt_table = pvt_table.dropna(subset=columnsNAN)
 
         # Fixing datatype
@@ -570,10 +569,13 @@ class PVTCORR_HGOR(PVTCORR):
                                                       rs_best_correlation=rs_best_correlation)
 
                 elif property_lower == 'rog':
-                    separators = {'specific_gravity': [df['sep_sg1'], df['sep_sg2'], df['sep_sg3'], df['sep_sg4']],
-                                  'pressure': [df['sep_P1'], df['sep_P2'], df['sep_P3'], df['sep_P4']],
-                                  'temperature': [df['sep_T1'], df['sep_T2'], df['sep_T3'], df['sep_T4']],
-                                  }
+                    if correlation['principle']=='nasser':
+                        separators = {'specific_gravity': [df['sep_sg1'], df['sep_sg2'], df['sep_sg3'], df['sep_sg4']],
+                                      'pressure': [df['sep_P1'], df['sep_P2'], df['sep_P3'], df['sep_P4']],
+                                      'temperature': [df['sep_T1'], df['sep_T2'], df['sep_T3'], df['sep_T4']],
+                                      }
+                    else:
+                        separators = None
 
                     temp = self._computeVaporizedOilGas(API=api, temperature=temperature, pressure=p_sat,
                                                         gas_gravity=gas_gravity_sp, method=correlation,

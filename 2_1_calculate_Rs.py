@@ -2,7 +2,6 @@ from correlations.HGOR_script import PVTCORR_HGOR
 from correlations.utils import *
 
 source_curve = 'PVT_Data_updated'
-source_curve = 'PVT_Data'
 
 # create class
 if source_curve == 'PVT_Data_updated':

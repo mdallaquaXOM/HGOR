@@ -14,13 +14,13 @@ bounds = {'temperature': [75, 225],
 # New Correlations
 properties = {
     'Rog': [
+        {'principle': 'exponential_rational_8', 'variation': 'optimized'},
         {'principle': 'nasser', 'variation': 'VO_unknownPsat'},
         {'principle': 'nasser', 'variation': 'VO_knownPsat'},
         {'principle': 'nasser', 'variation': 'GC_unknownPsat'},
         {'principle': 'nasser', 'variation': 'GC_knownPsat'},
         {'principle': 'ace', 'variation': 'ovalle'},
         {'principle': 'ace', 'variation': 'marcelo'},
-        {'principle': 'exponential_rational_8', 'variation': 'optimized'},
     ],
 }
 
